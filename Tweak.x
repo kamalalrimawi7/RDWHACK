@@ -1,21 +1,28 @@
 #import <UIKit/UIKit.h>
 
+// --- تعريف واجهة المستخدم (اللوجين وشحن الرصيد) ---
 @interface RDWModernLoginVC : UIViewController
 @property (nonatomic, retain) UIVisualEffectView *blurView;
 @property (nonatomic, retain) UIView *alertContainer;
 @property (nonatomic, retain) UIImageView *logoView;
 @property (nonatomic, retain) UITextField *codeField;
 @property (nonatomic, retain) UILabel *statusLabel;
-@property (nonatomic, retain) NSArray *masterCodes; 
+@property (nonatomic, retain) UIButton *loginBtn;
+@property (nonatomic, retain) UIButton *waBtn;
+@property (nonatomic, retain) NSArray *masterCodes; // الـ 200 كود
 @end
+
+// --- تعريف دالة التحقق العالمية ---
+static BOOL isLicenseValid(void);
 
 @implementation RDWModernLoginVC
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor clearColor];
+    [self registerGestureForWallet];
 
-  // مصفوفة الـ 200 كود (انسخها داخل ملف Tweak.x في قسم masterCodes)
+    // مصفوفة الـ 200 كود (انسخها داخل ملف Tweak.x في قسم masterCodes)
 self.masterCodes = @[
     @"RDW-7X2P9M", @"RDW-B4N8K1", @"RDW-Q9W5Z3", @"RDW-R2T6V8", @"RDW-L1M4N7",
     @"RDW-J9K2C5", @"RDW-S8D3F6", @"RDW-G4H1J7", @"RDW-P5L9K2", @"RDW-X3C7V1",
@@ -58,13 +65,14 @@ self.masterCodes = @[
     @"RDW-A1B2C3", @"RDW-D4E5F6", @"RDW-G7H8I9", @"RDW-J0K1L2", @"RDW-M3N4O5",
     @"RDW-P6Q7R8", @"RDW-S9T0U1", @"RDW-V2W3X4", @"RDW-Y5Z6A7", @"RDW-B8C9D0"
 ];
-    // 1. النغمشة (Blur)
+
+    // 1. تأثير النغمشة (Blur)
     UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
     self.blurView = [[UIVisualEffectView alloc] initWithEffect:blur];
     self.blurView.frame = self.view.bounds;
     [self.view addSubview:self.blurView];
 
-    // 2. الحاوية
+    // 2. حاوية التنبيه (التنسيق المطابق لصورة 4)
     self.alertContainer = [[UIView alloc] init];
     self.alertContainer.backgroundColor = [UIColor colorWithRed:0.07 green:0.08 blue:0.10 alpha:0.96];
     self.alertContainer.layer.cornerRadius = 25;
@@ -72,7 +80,7 @@ self.masterCodes = @[
     self.alertContainer.layer.shadowRadius = 20;
     [self.view addSubview:self.alertContainer];
 
-    // 3. اللوجو
+    // 3. اللوجو (الرابط الصحيح)
     self.logoView = [[UIImageView alloc] init];
     self.logoView.contentMode = UIViewContentModeScaleAspectFit;
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:@"https://i.ibb.co/7xZ41GWF/IMG-3601.jpg"] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
@@ -80,7 +88,7 @@ self.masterCodes = @[
     }] resume];
     [self.alertContainer addSubview:self.logoView];
 
-    // 4. النصوص والجمالية
+    // 4. نصوص الهوية (تنسيق صورة 4)
     UILabel *title = [[UILabel alloc] init];
     title.text = @"Rimawi Digital World";
     title.textColor = [UIColor whiteColor];
@@ -89,7 +97,7 @@ self.masterCodes = @[
     [self.alertContainer addSubview:title];
 
     self.statusLabel = [[UILabel alloc] init];
-    self.statusLabel.text = @"نسخة حصرية لمتجر RDW\nأدخل الكود لشحن 30 يوم";
+    self.statusLabel.text = @"هذه نسخة حصرية لمتجر RDW\nيرجى تفعيل الكود للاستمرار";
     self.statusLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.7];
     self.statusLabel.font = [UIFont systemFontOfSize:12];
     self.statusLabel.numberOfLines = 2;
@@ -98,21 +106,33 @@ self.masterCodes = @[
 
     // 5. خانة الكود
     self.codeField = [[UITextField alloc] init];
-    self.codeField.placeholder = @"RDW-XXXXXX";
+    self.codeField.placeholder = @"أدخل كود RDW الحصري...";
     self.codeField.textAlignment = NSTextAlignmentCenter;
+    self.codeField.secureTextEntry = YES;
     self.codeField.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.1];
     self.codeField.textColor = [UIColor whiteColor];
     self.codeField.layer.cornerRadius = 12;
+    self.codeField.keyboardType = UIKeyboardTypeDefault;
     [self.alertContainer addSubview:self.codeField];
 
-    // 6. زر التفعيل
-    UIButton *btn = [UIButton buttonWithType:UIButtonTypeSystem];
-    [btn setTitle:@"شحن الرصيد" forState:UIControlStateNormal];
-    [btn setBackgroundColor:[UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.00]];
-    [btn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    btn.layer.cornerRadius = 12;
-    [btn addTarget:self action:@selector(processCode) forControlEvents:UIControlEventTouchUpInside];
-    [self.alertContainer addSubview:btn];
+    // 6. الأزرار (تنسيق صورة 4)
+    self.loginBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.loginBtn setTitle:@"تفعيل واستمرار" forState:UIControlStateNormal];
+    [self.loginBtn setBackgroundColor:[UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.00]];
+    [self.loginBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    self.loginBtn.titleLabel.font = [UIFont boldSystemFontOfSize:16];
+    self.loginBtn.layer.cornerRadius = 12;
+    [self.loginBtn addTarget:self action:@selector(processCode) forControlEvents:UIControlEventTouchUpInside];
+    [self.alertContainer addSubview:self.loginBtn];
+
+    self.waBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.waBtn setTitle:@"شراء كود تفعيل RDW" forState:UIControlStateNormal];
+    [self.waBtn setBackgroundColor:[UIColor colorWithRed:0.15 green:0.68 blue:0.38 alpha:1.00]];
+    [self.waBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    self.waBtn.titleLabel.font = [UIFont boldSystemFontOfSize:14];
+    self.waBtn.layer.cornerRadius = 12;
+    [self.waBtn addTarget:self action:@selector(contactKamal) forControlEvents:UIControlEventTouchUpInside];
+    [self.alertContainer addSubview:self.waBtn];
 
     // 7. توقيع كمال
     UILabel *dev = [[UILabel alloc] init];
@@ -122,33 +142,31 @@ self.masterCodes = @[
     [self.alertContainer addSubview:dev];
 
     [self setupLayout];
+    [self registerKBDismiss];
 }
 
+// دالة شحن ومعالجة الأكواد (نفس منطق التراكم والخطأ)
 - (void)processCode {
     NSString *input = self.codeField.text;
     NSUserDefaults *p = [NSUserDefaults standardUserDefaults];
     NSString *myID = [[[UIDevice currentDevice] identifierForVendor] UUIDString];
 
-    // فحص إذا الكود موجود في اللستة
     if (![self.masterCodes containsObject:input]) {
-        [self updateStatus:@"كود غير صحيح!" color:[UIColor redColor]];
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://www.instagram.com/rimawi.dw"] options:@{} completionHandler:nil];
         return;
     }
 
-    // فحص إذا الكود مستخدم من قبل
     NSString *usedBy = [p objectForKey:[NSString stringWithFormat:@"UsedBy_%@", input]];
     if (usedBy) {
-        if ([usedBy isEqualToString:myID]) [self updateStatus:@"استعملت هذا الكود مسبقاً!" color:[UIColor orangeColor]];
-        else [self updateStatus:@"هذا الكود مستخدم على جهاز آخر!" color:[UIColor redColor]];
+        if ([usedBy isEqualToString:myID]) [self updateStatus:@"لقد تم استعمال هذا الكود مسبقاً على جهازك!" color:[UIColor orangeColor]];
+        else [self updateStatus:@"لقد تم استعمال الكود على جهاز آخر!" color:[UIColor redColor]];
         return;
     }
 
-    // شحن 30 يوم إضافية
+    // شحن 30 يوم
     [p setObject:myID forKey:[NSString stringWithFormat:@"UsedBy_%@", input]];
     NSDate *currentExp = [p objectForKey:@"RDW_Expiry"];
-    if (!currentExp || [[NSDate date] compare:currentExp] == NSOrderedDescending) {
-        currentExp = [NSDate date];
-    }
+    if (!currentExp || [[NSDate date] compare:currentExp] == NSOrderedDescending) currentExp = [NSDate date];
     
     NSDate *newExp = [currentExp dateByAddingTimeInterval:30 * 24 * 3600];
     [p setObject:newExp forKey:@"RDW_Expiry"];
@@ -160,38 +178,90 @@ self.masterCodes = @[
     });
 }
 
-- (void)updateStatus:(NSString *)m color:(UIColor *)c {
-    self.statusLabel.text = m; self.statusLabel.textColor = c;
+// دالة الواتساب القديمة
+- (void)contactKamal {
+    NSString *url = @"https://wa.me/972567171874?text=أريد_شراء_كود_تفعيل_لمتجر_RDW";
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url] options:@{} completionHandler:nil];
 }
 
+// --- قسم البانل المخفي (Wallet) وإيماءة الـ 4 أصابع ---
+
+- (void)registerGestureForWallet {
+    UILongPressGestureRecognizer *walletG = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleWalletGesture:)];
+    walletG.minimumPressDuration = 3.0;
+    walletG.numberOfTouchesRequired = 4;
+    [self.view addGestureRecognizer:walletG];
+}
+
+- (void)handleWalletGesture:(UILongPressGestureRecognizer *)g {
+    if (g.state == UIGestureRecognizerStateBegan) {
+        [self showWalletPanel];
+    }
+}
+
+- (void)showWalletPanel {
+    NSUserDefaults *p = [NSUserDefaults standardUserDefaults];
+    NSDate *exp = [p objectForKey:@"RDW_Expiry"];
+    double daysLeft = (exp) ? [exp timeIntervalSinceDate:[NSDate date]] / 86400.0 : 0;
+
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"محفظة RDW" message:[NSString stringWithFormat:@"متبقي لديك: %d يوماً", (int)daysLeft] preferredStyle:UIAlertControllerStyleAlert];
+    
+    [a addTextFieldWithConfigurationHandler:^(UITextField *t) { t.placeholder = @"أدخل كود شحن جديد..."; t.secureTextEntry = YES; }];
+    
+    [a addAction:[UIAlertAction actionWithTitle:@"شحن الكود" style:UIAlertActionStyleDefault handler:^(UIAlertAction *act) {
+        // ... (هنا نضع نفس منطق processCode لشحن الرصيد من البانل)
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"إغلاق" style:UIAlertActionStyleCancel handler:nil]];
+    
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+// --- تنسيق الواجهات لمنع التداخل (Fixing constraints based on Image 4) ---
 - (void)setupLayout {
     self.alertContainer.translatesAutoresizingMaskIntoConstraints = NO;
     for (UIView *v in self.alertContainer.subviews) v.translatesAutoresizingMaskIntoConstraints = NO;
+
     [NSLayoutConstraint activateConstraints:@[
         [self.alertContainer.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [self.alertContainer.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
+        [self.alertContainer.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor constant:-40], // رفع الحاوية قليلاً
         [self.alertContainer.widthAnchor constraintEqualToConstant:300],
-        [self.alertContainer.heightAnchor constraintEqualToConstant:480],
-        [self.logoView.topAnchor constraintEqualToAnchor:self.alertContainer.topAnchor constant:25],
+        [self.alertContainer.heightAnchor constraintEqualToConstant:500],
+        [self.logoView.topAnchor constraintEqualToAnchor:self.alertContainer.topAnchor constant:20],
         [self.logoView.centerXAnchor constraintEqualToAnchor:self.alertContainer.centerXAnchor],
         [self.logoView.widthAnchor constraintEqualToConstant:100], [self.logoView.heightAnchor constraintEqualToConstant:100],
+        [self.statusLabel.topAnchor constraintEqualToAnchor:self.logoView.bottomAnchor constant:10],
+        [self.statusLabel.centerXAnchor constraintEqualToAnchor:self.alertContainer.centerXAnchor],
         [self.codeField.topAnchor constraintEqualToAnchor:self.statusLabel.bottomAnchor constant:30],
         [self.codeField.centerXAnchor constraintEqualToAnchor:self.alertContainer.centerXAnchor],
-        [self.codeField.widthAnchor constraintEqualToConstant:240], [self.codeField.heightAnchor constraintEqualToConstant:40]
+        [self.codeField.widthAnchor constraintEqualToConstant:240], [self.codeField.heightAnchor constraintEqualToConstant:40],
+        [self.loginBtn.topAnchor constraintEqualToAnchor:self.codeField.bottomAnchor constant:20],
+        [self.loginBtn.centerXAnchor constraintEqualToAnchor:self.alertContainer.centerXAnchor],
+        [self.loginBtn.widthAnchor constraintEqualToConstant:180], [self.loginBtn.heightAnchor constraintEqualToConstant:48],
+        [self.waBtn.topAnchor constraintEqualToAnchor:self.loginBtn.bottomAnchor constant:12],
+        [self.waBtn.centerXAnchor constraintEqualToAnchor:self.alertContainer.centerXAnchor],
+        [self.waBtn.widthAnchor constraintEqualToConstant:230], [self.waBtn.heightAnchor constraintEqualToConstant:40]
     ]];
-    UIView *last = self.alertContainer.subviews.lastObject;
-    [last.bottomAnchor constraintEqualToAnchor:self.alertContainer.bottomAnchor constant:-10].active = YES;
-    [last.centerXAnchor constraintEqualToAnchor:self.alertContainer.centerXAnchor].active = YES;
+    UIView *dev = self.alertContainer.subviews.lastObject;
+    [dev.bottomAnchor constraintEqualToAnchor:self.alertContainer.bottomAnchor constant:-10].active = YES;
+    [dev.centerXAnchor constraintEqualToAnchor:self.alertContainer.centerXAnchor].active = YES;
 }
+
+- (void)updateStatus:(NSString *)m color:(UIColor *)c { self.statusLabel.text = m; self.statusLabel.textColor = c; }
+- (void)registerKBDismiss { UITapGestureRecognizer *t = [[UITapGestureRecognizer alloc] initWithTarget:self.view action:@selector(endEditing:)]; [self.view addGestureRecognizer:t]; }
+- (BOOL)modalInPresentation { return YES; }
 @end
+
+// --- قسم الحقن واستدعاء البانل من داخل التطبيق ---
+
+static BOOL isLicenseValid() {
+    NSUserDefaults *p = [NSUserDefaults standardUserDefaults];
+    NSDate *exp = [p objectForKey:@"RDW_Expiry"];
+    return (exp && [[NSDate date] compare:exp] == NSOrderedAscending);
+}
 
 __attribute__((constructor)) static void init() {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        NSUserDefaults *p = [NSUserDefaults standardUserDefaults];
-        NSDate *exp = [p objectForKey:@"RDW_Expiry"];
-        
-        // إذا لم يكن هناك تاريخ أو التاريخ انتهى: اظهر القفل
-        if (!exp || [[NSDate date] compare:exp] == NSOrderedDescending) {
+        if (!isLicenseValid()) {
             UIWindow *win = nil;
             if (@available(iOS 13.0, *)) {
                 for (UIWindowScene* s in [UIApplication sharedApplication].connectedScenes) {
@@ -206,6 +276,8 @@ __attribute__((constructor)) static void init() {
                 vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
                 [root presentViewController:vc animated:YES completion:nil];
             }
+        } else {
+            // (اختياري) إذا الرخصة صالحة، بنقدر نسجل إيماءة الـ 4 أصابع على الشاشة الرئيسية عشان يفتح البانل من هناك
         }
     });
 }
