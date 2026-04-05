@@ -6,21 +6,19 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
+        uses: actions/checkout@v4
 
       - name: Setup Theos
-        uses: theos/setup-theos@v1
+        uses: theos/setup-theos@master
 
-      - name: Build Tweak
+      - name: Build Package
         run: |
           make package FINALPACKAGE=1
         env:
           THEOS: ${{ github.workspace }}/theos
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: RDWHACK-Package
+          name: RDWHACK-DEB
           path: packages/*.deb
