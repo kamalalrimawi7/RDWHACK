@@ -8,16 +8,26 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
 
+// تعريف الدوال للـ UIWindow عشان الـ Compiler ما يعطي Error
+@interface UIWindow (RDW)
+- (void)rdw_lock;
+- (void)rdw_p:(UILongPressGestureRecognizer *)g;
+@end
+
 @interface RDWCore : NSObject
 + (NSString *)myID;
-+ (void)vibe:(int)s; // 1: success, 0: fail
++ (void)vibe:(int)s;
 @end
 
 @implementation RDWCore
 + (NSString *)myID { return [[[UIDevice currentDevice] identifierForVendor] UUIDString]; }
 + (void)vibe:(int)s {
-    if (s) { [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium] impactOccurred]; }
-    else { AudioServicesPlaySystemSound(kSystemSoundID_Vibrate); }
+    if (s) { 
+        UIImpactFeedbackGenerator *gen = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
+        [gen impactOccurred];
+    } else { 
+        AudioServicesPlaySystemSound(kSystemSoundID_Vibrate); 
+    }
 }
 @end
 
@@ -32,7 +42,6 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
     
-    // تأثير النغمشة (Blur)
     UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
     UIVisualEffectView *bv = [[UIVisualEffectView alloc] initWithEffect:blur];
     bv.frame = self.view.bounds; [self.view addSubview:bv];
@@ -42,7 +51,6 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     box.layer.cornerRadius = 45; box.layer.borderColor = RDW_GOLD.CGColor; box.layer.borderWidth = 1.5;
     [self.view addSubview:box];
 
-    // لوجو RDW
     UIImageView *img = [[UIImageView alloc] initWithFrame:CGRectMake(110, 40, 100, 100)];
     img.layer.cornerRadius = 50; img.layer.borderWidth = 2; img.layer.borderColor = RDW_GOLD.CGColor; img.clipsToBounds = YES;
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:@"https://i.ibb.co/7xZ41GWF/IMG-3601.jpg"] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
@@ -51,35 +59,35 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     [box addSubview:img];
 
     UILabel *t1 = [[UILabel alloc] initWithFrame:CGRectMake(0, 150, 320, 30)];
-    t1.text = @"Rimawi Digital World"; t1.textColor = RDW_GOLD; t1.textAlignment = 1; t1.font = [UIFont boldSystemFontOfSize:22];
+    t1.text = @"Rimawi Digital World"; t1.textColor = RDW_GOLD; t1.textAlignment = NSTextAlignmentCenter; t1.font = [UIFont boldSystemFontOfSize:22];
     [box addSubview:t1];
 
     UILabel *t2 = [[UILabel alloc] initWithFrame:CGRectMake(0, 180, 320, 20)];
-    t2.text = @"نسخة حصرية لمتجر RDW"; t2.textColor = [UIColor whiteColor]; t2.textAlignment = 1; t2.font = [UIFont systemFontOfSize:13];
+    t2.text = @"نسخة حصرية لمتجر RDW"; t2.textColor = [UIColor whiteColor]; t2.textAlignment = NSTextAlignmentCenter; t2.font = [UIFont systemFontOfSize:13];
     [box addSubview:t2];
 
     self.msgL = [[UILabel alloc] initWithFrame:CGRectMake(20, 210, 280, 30)];
-    self.msgL.textColor = [UIColor systemRedColor]; self.msgL.textAlignment = 1; self.msgL.font = [UIFont systemFontOfSize:12];
+    self.msgL.textColor = [UIColor systemRedColor]; self.msgL.textAlignment = NSTextAlignmentCenter; self.msgL.font = [UIFont systemFontOfSize:12];
     [box addSubview:self.msgL];
 
     self.inputField = [[UITextField alloc] initWithFrame:CGRectMake(40, 250, 240, 55)];
     self.inputField.placeholder = @"أدخل كود RDW هنا"; self.inputField.backgroundColor = [UIColor colorWithWhite:1 alpha:0.05];
-    self.inputField.textColor = [UIColor whiteColor]; self.inputField.textAlignment = 1; self.inputField.layer.cornerRadius = 15;
+    self.inputField.textColor = [UIColor whiteColor]; self.inputField.textAlignment = NSTextAlignmentCenter; self.inputField.layer.cornerRadius = 15;
     [box addSubview:self.inputField];
 
-    UIButton *btn1 = [UIButton buttonWithType:0];
+    UIButton *btn1 = [UIButton buttonWithType:UIButtonTypeSystem];
     btn1.frame = CGRectMake(40, 320, 240, 55); [btn1 setTitle:@"تفعيل النسخة" forState:0];
-    [btn1 setBackgroundColor:RDW_GOLD]; btn1.layer.cornerRadius = 15; [btn1 addTarget:self action:@selector(goCheck) forControlEvents:64];
+    [btn1 setBackgroundColor:RDW_GOLD]; [btn1 setTitleColor:[UIColor whiteColor] forState:0]; btn1.layer.cornerRadius = 15; [btn1 addTarget:self action:@selector(goCheck) forControlEvents:UIControlEventTouchUpInside];
     [box addSubview:btn1];
 
-    UIButton *btn2 = [UIButton buttonWithType:0];
+    UIButton *btn2 = [UIButton buttonWithType:UIButtonTypeSystem];
     btn2.frame = CGRectMake(40, 390, 240, 50); [btn2 setTitle:@"شراء كود تفعيل" forState:0];
-    [btn2 setBackgroundColor:[UIColor colorWithRed:0.1 green:0.5 blue:0.2 alpha:1]];
-    btn2.layer.cornerRadius = 15; [btn2 addTarget:self action:@selector(goWA) forControlEvents:64];
+    [btn2 setBackgroundColor:[UIColor colorWithRed:0.1 green:0.5 blue:0.2 alpha:1]]; [btn2 setTitleColor:[UIColor whiteColor] forState:0];
+    btn2.layer.cornerRadius = 15; [btn2 addTarget:self action:@selector(goWA) forControlEvents:UIControlEventTouchUpInside];
     [box addSubview:btn2];
 
     UILabel *dev = [[UILabel alloc] initWithFrame:CGRectMake(0, 530, 320, 20)];
-    dev.text = @"تم التطوير بواسطة كمال"; dev.textColor = [UIColor grayColor]; dev.textAlignment = 1; dev.font = [UIFont systemFontOfSize:11];
+    dev.text = @"تم التطوير بواسطة كمال"; dev.textColor = [UIColor grayColor]; dev.textAlignment = NSTextAlignmentCenter; dev.font = [UIFont systemFontOfSize:11];
     [box addSubview:dev];
 }
 
@@ -95,9 +103,9 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
                     NSString *uBy = json[@"usedBy"];
                     NSString *myU = [RDWCore myID];
 
-                    if ([uBy isEqualToString:@""]) { // كود جديد زي اللي بالصورة
+                    if ([uBy isEqualToString:@""]) {
                         [self activateNew:code];
-                    } else if ([uBy isEqualToString:myU]) { // جهازه هو
+                    } else if ([uBy isEqualToString:myU]) {
                         [self done:code];
                     } else {
                         self.msgL.text = @"هذا المفتاح مستخدم على جهاز آخر!"; [RDWCore vibe:0];
@@ -125,7 +133,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 
 - (void)done:(NSString *)c {
     [RDWCore vibe:1]; [[NSUserDefaults standardUserDefaults] setObject:c forKey:@"RDW_KEY"];
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"✅ تم التفعيل" message:@"أهلاً بك في Rimawi Digital World" preferredStyle:1];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"✅ تم التفعيل" message:@"أهلاً بك في Rimawi Digital World" preferredStyle:UIAlertControllerStyleAlert];
     [self presentViewController:a animated:YES completion:^{
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.5*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             [a dismissViewControllerAnimated:YES completion:^{ [self dismissViewControllerAnimated:YES completion:nil]; }];
@@ -149,16 +157,16 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
         self.layer.borderColor = RDW_GOLD.CGColor; self.layer.borderWidth = 2; self.tag = 888;
         
         self.lbl = [[UILabel alloc] initWithFrame:CGRectMake(10, 20, 260, 60)];
-        self.lbl.numberOfLines = 2; self.lbl.textColor = [UIColor whiteColor]; self.lbl.textAlignment = 1;
+        self.lbl.numberOfLines = 2; self.lbl.textColor = [UIColor whiteColor]; self.lbl.textAlignment = NSTextAlignmentCenter;
         [self addSubview:self.lbl];
 
         self.fld = [[UITextField alloc] initWithFrame:CGRectMake(20, 90, 240, 40)];
         self.fld.placeholder = @"أدخل كود تمديد"; self.fld.backgroundColor = [UIColor whiteColor];
-        self.fld.textAlignment = 1; self.fld.layer.cornerRadius = 10; [self addSubview:self.fld];
+        self.fld.textAlignment = NSTextAlignmentCenter; self.fld.layer.cornerRadius = 10; [self addSubview:self.fld];
 
-        UIButton *b = [UIButton buttonWithType:0];
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
         b.frame = CGRectMake(60, 145, 160, 40); [b setTitle:@"تمديد الاشتراك" forState:0];
-        [b setBackgroundColor:RDW_GOLD]; b.layer.cornerRadius = 10; [b addTarget:self action:@selector(stack) forControlEvents:64];
+        [b setBackgroundColor:RDW_GOLD]; [b setTitleColor:[UIColor whiteColor] forState:0]; b.layer.cornerRadius = 10; [b addTarget:self action:@selector(stack) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:b];
         [self refresh];
     }
@@ -175,7 +183,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     }] resume];
 }
 - (void)stack {
-    // منطق التمديد: يأخذexpiry القديم ويضيف عليه 30 يوم ويمسح الكود الجديد
+    // سيتم إضافة منطق التمديد لاحقاً
 }
 @end
 
@@ -198,6 +206,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(rdw_p:)];
     lp.numberOfTouchesRequired = 3; lp.minimumPressDuration = 2.5; [self addGestureRecognizer:lp];
 }
+
 %new
 - (void)rdw_lock {
     UIViewController *top = self.rootViewController;
@@ -208,9 +217,10 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
         [top presentViewController:vc animated:YES completion:nil];
     }
 }
+
 %new
 - (void)rdw_p:(UILongPressGestureRecognizer *)g {
-    if (g.state == 1) {
+    if (g.state == UIGestureRecognizerStateBegan) {
         if ([self viewWithTag:888]) return;
         RDWPanel *p = [[RDWPanel alloc] initWithFrame:CGRectMake((self.frame.size.width-280)/2, 120, 280, 210)];
         [self addSubview:p];
