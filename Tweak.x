@@ -5,9 +5,11 @@
 // --- إعدادات RDW وروابط التواصل ---
 static NSString *const RDW_DB_URL = @"https://rdw-server-default-rtdb.firebaseio.com/codes";
 static NSString *const RDW_INSTA  = @"https://www.instagram.com/rimawi.dw";
-static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+شراء+كود+تفعيل+RDW+لو+سمحت";
+static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=أريد_شراء_كود_تفعيل_متجر_RDW";
+
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
 
+// --- تعريف الواجهات (Interfaces) لإصلاح أخطاء الـ Build ---
 @interface RDWSecurity : NSObject
 + (void)saveLocal:(NSString *)val forKey:(NSString *)key;
 + (NSString *)loadLocal:(NSString *)key;
@@ -19,9 +21,15 @@ static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+
 @property (nonatomic, retain) UILabel *statusL;
 @end
 
-// --- واجهة بانل التحكم (تظهر بـ 3 أصابع) ---
+// إضافة التصريح عن الميثود هنا ليراها المترجم
+@interface UIWindow (RDW_Fix)
+- (void)rdw_lock;
+- (void)rdw_handle_lp:(UILongPressGestureRecognizer *)g;
+@end
+
 @interface RDWWalletVC : UIView
 @end
+
 @implementation RDWWalletVC
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
@@ -29,7 +37,6 @@ static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+
         self.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.98];
         self.layer.cornerRadius = 20; self.layer.borderColor = RDW_GOLD.CGColor; self.layer.borderWidth = 1.5;
         self.tag = 999;
-        
         UIButton *btn = [UIButton buttonWithType:UIButtonTypeSystem];
         btn.frame = CGRectMake(20, 20, 200, 45); 
         [btn setTitle:@"تجديد / تغيير الكود" forState:0];
@@ -41,10 +48,14 @@ static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+
 }
 - (void)reLock {
     [self removeFromSuperview];
-    UIWindow *win = (UIWindow *)[[UIApplication sharedApplication] keyWindow];
-    RDWLoginVC *vc = [[RDWLoginVC alloc] init];
-    vc.modalPresentationStyle = UIModalPresentationFullScreen;
-    [win.rootViewController presentViewController:vc animated:YES completion:nil];
+    // طريقة حديثة للوصول للنافذة بدون keyWindow
+    UIWindow *win = nil;
+    for (UIWindowScene* s in [UIApplication sharedApplication].connectedScenes) {
+        if (s.activationState == UISceneActivationStateForegroundActive) {
+            for (UIWindow* w in s.windows) { if (w.isKeyWindow) { win = w; break; } }
+        }
+    }
+    if (win && [win respondsToSelector:@selector(rdw_lock)]) { [win rdw_lock]; }
 }
 @end
 
@@ -123,7 +134,6 @@ static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+
     %orig;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        // تفعيل البانل بـ 3 أصابع (ضغط مطول 2.5 ثانية)
         UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(rdw_handle_lp:)];
         lp.numberOfTouchesRequired = 3; lp.minimumPressDuration = 2.5;
         [self addGestureRecognizer:lp];
