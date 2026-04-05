@@ -1,46 +1,49 @@
 #import <UIKit/UIKit.h>
 
-#define SECRET_PIN @"kamal_alaa.dw" 
+// --- إعدادات متجر Rimawi Digital World ---
+#define STORE_NAME @"Rimawi Digital World"
+#define ACCESS_KEY @"RDW2026" // الكود المطلوب للدخول
+#define INSTA_URL @"https://www.instagram.com/rimawi.dw"
 
-%hook SpringBoard
-- (void)applicationDidFinishLaunching:(id)application {
-    %orig;
-
-    // توجيه إنستجرام
-    NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
-    if (![prefs boolForKey:@"RDW_FirstLaunch"]) {
-        [prefs setBool:YES forKey:@"RDW_FirstLaunch"];
-        [prefs synchronize];
-        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://www.instagram.com/rimawi.dw"] options:@{} completionHandler:nil];
-    }
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+__attribute__((constructor)) static void init() {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"\n\n\nRDWHACK ACCESS" 
-            message:@"Welcome to Rimawi Digital World\nEnter Password to continue:" 
-            preferredStyle:UIAlertControllerStyleAlert];
-
-        UIImageView *imageView = [[UIImageView alloc] initWithFrame:CGRectMake(110, 15, 50, 50)];
-        imageView.image = [UIImage systemImageNamed:@"shield.lefthalf.filled"];
-        imageView.tintColor = [UIColor systemBlueColor];
-        [alert.view addSubview:imageView];
-
+        // إنشاء التنبيه (Alert)
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:STORE_NAME 
+                                                                       message:@"هذا التطبيق مقدم من متجرنا.\nالرجاء إدخال كود التفعيل للاستمرار:" 
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        
+        // حقل إدخال الكود
         [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
-            textField.placeholder = @"Enter Password";
-            textField.secureTextEntry = YES;
+            textField.placeholder = @"كود التفعيل...";
+            textField.textAlignment = NSTextAlignmentCenter;
         }];
-
-        UIAlertAction *login = [UIAlertAction actionWithTitle:@"Login" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-            if (![alert.textFields.firstObject.text isEqualToString:SECRET_PIN]) {
+        
+        // زر التحقق والدخول
+        UIAlertAction *loginAction = [UIAlertAction actionWithTitle:@"دخول" style:UIAlertActionStyleDefault handler:^(UIAlertAction * action) {
+            UITextField *codeField = alert.textFields.firstObject;
+            if ([codeField.text isEqualToString:ACCESS_KEY]) {
+                // الكود صح، يكمل المستخدم طبيعي
+            } else {
+                // الكود غلط، يفتح الانستا ويغلق التطبيق
+                [[UIApplication sharedApplication] openURL:[NSURL URLWithString:INSTA_URL] options:@{} completionHandler:nil];
                 exit(0);
             }
         }];
+        
+        // زر توجيه للانستقرام مباشرة
+        UIAlertAction *instaAction = [UIAlertAction actionWithTitle:@"طلب كود / زيارة المتجر" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * action) {
+            [[UIApplication sharedApplication] openURL:[NSURL URLWithString:INSTA_URL] options:@{} completionHandler:nil];
+            exit(0);
+        }];
 
-        [alert addAction:login];
-
-        // تصحيح القوس وطريقة الاستدعاء
-        UIWindow *window = [(id)[UIApplication sharedApplication] keyWindow];
-        [window.rootViewController presentViewController:alert animated:YES completion:nil];
+        [alert addAction:loginAction];
+        [alert addAction:instaAction];
+        
+        // إظهار الواجهة فوق أي شيء في التطبيق
+        UIViewController *root = [[UIApplication sharedApplication] keyWindow].rootViewController;
+        if (root) {
+            [root presentViewController:alert animated:YES completion:nil];
+        }
     });
 }
-%end
