@@ -6,9 +6,11 @@
 static NSString *const RDW_DB_URL = @"https://rdw-server-default-rtdb.firebaseio.com/codes";
 static NSString *const RDW_INSTA  = @"https://www.instagram.com/rimawi.dw";
 static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+شراء+كود+تفعيل+RDW+لو+سمحت";
-#define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
 
-// --- حل أخطاء التعريف (Interface) لـ GitHub ---
+#define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
+#define RDW_GREEN [UIColor colorWithRed:0.15 green:0.68 blue:0.38 alpha:1.0]
+
+// --- تعريفات لحل أخطاء GitHub ---
 @interface RDWSecurity : NSObject
 + (void)saveLocal:(NSString *)val forKey:(NSString *)key;
 + (NSString *)loadLocal:(NSString *)key;
@@ -16,17 +18,19 @@ static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+
 + (void)triggerErrorShake;
 @end
 
-@interface RDWLoginVC : UIViewController
-@property (nonatomic, retain) UITextField *codeField;
-@property (nonatomic, retain) UILabel *statusL;
-@end
-
-// هذا الجزء يحل خطأ "no visible @interface"
 @interface UIWindow (RDW_Fix)
 - (void)rdw_lock_now;
+- (void)rdw_initial_check;
 - (void)rdw_handle_lp:(UILongPressGestureRecognizer *)g;
 @end
 
+@interface RDWLoginVC : UIViewController
+@property (nonatomic, retain) UITextField *codeField;
+@property (nonatomic, retain) UILabel *statusL;
+@property (nonatomic, retain) UIActivityIndicatorView *spinner;
+@end
+
+// --- دوال الأمان ---
 @implementation RDWSecurity
 + (void)saveLocal:(NSString *)val forKey:(NSString *)key {
     NSData *data = [val dataUsingEncoding:NSUTF8StringEncoding];
@@ -52,11 +56,17 @@ static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+
 }
 @end
 
+// --- شاشة تسجيل الدخول ---
 @implementation RDWLoginVC
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor blackColor];
-    UIView *cont = [[UIView alloc] initWithFrame:CGRectMake((self.view.frame.size.width-320)/2, (self.view.frame.size.height-540)/2, 320, 540)];
+    self.view.backgroundColor = [UIColor clearColor];
+    
+    UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
+    UIVisualEffectView *bv = [[UIVisualEffectView alloc] initWithEffect:blur];
+    bv.frame = self.view.bounds; [self.view addSubview:bv];
+
+    UIView *cont = [[UIView alloc] initWithFrame:CGRectMake((self.view.frame.size.width-320)/2, (self.view.frame.size.height-560)/2, 320, 560)];
     cont.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.98];
     cont.layer.cornerRadius = 40; cont.layer.borderWidth = 1.2; cont.layer.borderColor = RDW_GOLD.CGColor;
     [self.view addSubview:cont];
@@ -68,48 +78,88 @@ static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+
     }] resume];
     [cont addSubview:logo];
 
-    self.codeField = [[UITextField alloc] initWithFrame:CGRectMake(40, 250, 240, 55)];
+    self.statusL = [[UILabel alloc] initWithFrame:CGRectMake(20, 150, 280, 50)];
+    self.statusL.textColor = [UIColor whiteColor]; self.statusL.textAlignment = NSTextAlignmentCenter;
+    self.statusL.numberOfLines = 2; self.statusL.text = @"أدخل كود التفعيل للاستمرار"; [cont addSubview:self.statusL];
+
+    self.codeField = [[UITextField alloc] initWithFrame:CGRectMake(40, 220, 240, 55)];
     self.codeField.placeholder = @"أدخل كود RDW"; self.codeField.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.1];
     self.codeField.textColor = RDW_GOLD; self.codeField.textAlignment = NSTextAlignmentCenter;
     self.codeField.layer.cornerRadius = 18; [cont addSubview:self.codeField];
 
-    self.statusL = [[UILabel alloc] initWithFrame:CGRectMake(20, 180, 280, 50)];
-    self.statusL.textColor = [UIColor whiteColor]; self.statusL.textAlignment = NSTextAlignmentCenter;
-    self.statusL.numberOfLines = 2; self.statusL.text = @"أدخل كود التفعيل للاستمرار"; [cont addSubview:self.statusL];
-
+    // زر التفعيل
     UIButton *actBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    actBtn.frame = CGRectMake(40, 325, 240, 55); [actBtn setTitle:@"تفعيل واستمرار" forState:0];
+    actBtn.frame = CGRectMake(40, 295, 240, 55); [actBtn setTitle:@"تفعيل واستمرار" forState:0];
     [actBtn setBackgroundColor:RDW_GOLD]; [actBtn setTitleColor:[UIColor whiteColor] forState:0];
     actBtn.layer.cornerRadius = 18; [actBtn addTarget:self action:@selector(validateOnline) forControlEvents:64];
     [cont addSubview:actBtn];
+
+    // زر الشراء (واتساب) - رجعناه!
+    UIButton *buyBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    buyBtn.frame = CGRectMake(40, 365, 240, 50); [buyBtn setTitle:@"شراء كود تفعيل" forState:0];
+    [buyBtn setBackgroundColor:RDW_GREEN]; [buyBtn setTitleColor:[UIColor whiteColor] forState:0]; 
+    buyBtn.layer.cornerRadius = 15; [buyBtn addTarget:self action:@selector(goWA) forControlEvents:64];
+    [cont addSubview:buyBtn];
+
+    // زر الانستجرام
+    UIButton *igBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    igBtn.frame = CGRectMake(40, 425, 240, 40); [igBtn setTitle:@"متابعتنا على إنستجرام" forState:0];
+    [igBtn setTitleColor:RDW_GOLD forState:0]; [igBtn addTarget:self action:@selector(goIG) forControlEvents:64];
+    [cont addSubview:igBtn];
+
+    self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    self.spinner.color = [UIColor whiteColor]; self.spinner.center = actBtn.center; [cont addSubview:self.spinner];
 }
 
 - (void)validateOnline {
     NSString *input = [self.codeField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+    
+    // منع الكود الفارغ أو القصير
     if (input.length < 4) {
         self.statusL.text = @"الرجاء إدخال كود صالح!";
-        [RDWSecurity triggerErrorShake]; return;
+        [RDWSecurity triggerErrorShake];
+        return;
     }
+
+    [self.spinner startAnimating];
     NSString *apiPath = [NSString stringWithFormat:@"%@/%@.json", RDW_DB_URL, input];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:apiPath] completionHandler:^(NSData *data, NSURLResponse *res, NSError *err) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            [self.spinner stopAnimating];
             if (data) {
                 NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
                 if (json && ![json isEqual:[NSNull null]]) {
+                    // كود صحيح
                     [RDWSecurity saveLocal:input forKey:@"RDW_CODE"];
-                    [self dismissViewControllerAnimated:YES completion:nil]; return;
+                    
+                    UIImpactFeedbackGenerator *successGen = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
+                    [successGen impactOccurred];
+                    
+                    // رسالة النجاح (الـ Popup اللي طلبتها)
+                    UIAlertController *suc = [UIAlertController alertControllerWithTitle:@"✅ تم التفعيل" message:@"أهلاً بك في عالم Rimawi Digital World" preferredStyle:UIAlertControllerStyleAlert];
+                    [self presentViewController:suc animated:YES completion:^{
+                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                            [suc dismissViewControllerAnimated:YES completion:^{ [self dismissViewControllerAnimated:YES completion:nil]; }];
+                        });
+                    }];
+                    return;
                 }
             }
-            self.statusL.text = @"كود خاطئ! سيتم تحويلك للانستجرام..";
+            // كود خاطئ
+            self.statusL.text = @"كود خاطئ! سيتم تحويلك للمتجر..";
             [RDWSecurity triggerErrorShake];
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_INSTA] options:@{} completionHandler:nil];
+                [self goIG];
             });
         });
     }] resume];
 }
+- (void)goWA { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA] options:@{} completionHandler:nil]; }
+- (void)goIG { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_INSTA] options:@{} completionHandler:nil]; }
+- (BOOL)modalInPresentation { return YES; }
 @end
 
+// --- بانل التحكم (3 أصابع) ---
 @interface RDWWalletVC : UIView
 @end
 @implementation RDWWalletVC
@@ -139,29 +189,44 @@ static NSString *const RDW_WA     = @"https://wa.me/972567171874?text=+أريد+
 }
 @end
 
+// --- الهوك الرئيسي ---
 %hook UIWindow
 - (void)makeKeyAndVisible {
     %orig;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
+        
+        // 1. الفحص الفوري أول ما يفتح التطبيق عشان ما يدخل بدون شاشة القفل!
+        [self rdw_initial_check];
+
+        // 2. إيماءة الـ 3 أصابع لمدة 2.5 ثانية للبانل
         UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(rdw_handle_lp:)];
         lp.numberOfTouchesRequired = 3; lp.minimumPressDuration = 2.5; 
         [self addGestureRecognizer:lp];
 
+        // 3. الفحص الدوري كل 30 ثانية
         [NSTimer scheduledTimerWithTimeInterval:30 repeats:YES block:^(NSTimer *timer) {
-            NSString *code = [RDWSecurity loadLocal:@"RDW_CODE"];
-            if (!code) { [self rdw_lock_now]; return; }
-            NSString *p = [NSString stringWithFormat:@"%@/%@.json", RDW_DB_URL, code];
-            [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:p] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-                if (d) {
-                    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-                    if (!json || [json isEqual:[NSNull null]]) {
-                        dispatch_async(dispatch_get_main_queue(), ^{ [RDWSecurity clearLocal]; [self rdw_lock_now]; });
-                    }
-                }
-            }] resume];
+            [self rdw_initial_check];
         }];
     });
+}
+
+%new
+- (void)rdw_initial_check {
+    NSString *code = [RDWSecurity loadLocal:@"RDW_CODE"];
+    if (!code) { 
+        dispatch_async(dispatch_get_main_queue(), ^{ [self rdw_lock_now]; });
+        return; 
+    }
+    NSString *p = [NSString stringWithFormat:@"%@/%@.json", RDW_DB_URL, code];
+    [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:p] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+        if (d) {
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
+            if (!json || [json isEqual:[NSNull null]]) {
+                dispatch_async(dispatch_get_main_queue(), ^{ [RDWSecurity clearLocal]; [self rdw_lock_now]; });
+            }
+        }
+    }] resume];
 }
 
 %new
