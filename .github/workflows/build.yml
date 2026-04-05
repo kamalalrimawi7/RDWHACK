@@ -8,13 +8,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Theos Manually
+      - name: Install Theos and ldid
         run: |
           git clone --recursive https://github.com/theos/theos.git $GITHUB_WORKSPACE/theos
           curl -LO https://github.com/theos/sdks/archive/master.zip
           unzip master.zip
           mv sdks-master $GITHUB_WORKSPACE/theos/sdks
-          rm master.zip
+          brew install ldid
         
       - name: Build Package
         run: |
