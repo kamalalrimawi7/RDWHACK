@@ -5,8 +5,24 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Theos
-        uses: theos/setup-theos@master
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Theos Manually
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $GITHUB_WORKSPACE/theos
+          curl -LO https://github.com/theos/sdks/archive/master.zip
+          unzip master.zip
+          mv sdks-master $GITHUB_WORKSPACE/theos/sdks
+          rm master.zip
+        
       - name: Build Package
-        run: make package FINALPACKAGE=1
+        run: |
+          export THEOS=$GITHUB_WORKSPACE/theos
+          make package FINALPACKAGE=1
+          
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: RDWHACK-Final
+          path: packages/*.deb
