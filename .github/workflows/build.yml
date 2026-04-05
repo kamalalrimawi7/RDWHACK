@@ -1,0 +1,26 @@
+name: Build_RDWHACK
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup Theos
+        uses: theos/setup-theos@v1
+
+      - name: Build Tweak
+        run: |
+          make package FINALPACKAGE=1
+        env:
+          THEOS: ${{ github.workspace }}/theos
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: RDWHACK-Package
+          path: packages/*.deb
