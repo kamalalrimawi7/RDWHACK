@@ -6,8 +6,11 @@
 // --- روابط متجر RDW ---
 static NSString *const RDW_URL   = @"https://rdw-server-default-rtdb.firebaseio.com/codes";
 static NSString *const RDW_USERS = @"https://rdw-server-default-rtdb.firebaseio.com/users";
-// تم تحديث رسالة الواتساب هنا
-static NSString *const RDW_WA    = @"https://wa.me/972567171874?text=%D8%A7%D8%B1%D9%8A%D8%AF%20%D8%B4%D8%B1%D8%A7%D8%A1%20%D9%83%D9%88%D8%AF%20%D8%AA%D9%81%D8%B9%D9%8A%D9%84%20RDW";
+
+// الروابط المحدثة بالرسائل المطلوبة
+static NSString *const RDW_WA_BUY = @"https://wa.me/972567171874?text=%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%86%D9%8A%20%D8%B4%D8%B1%D8%A7%D8%A1%20%D9%83%D9%88%D8%AF%20%D8%AA%D9%81%D8%B9%D9%8A%D9%84%20RDW%20%D9%84%D9%88%20%D8%B3%D9%85%D8%AD%D8%AA%20%D8%9F";
+static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%2C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B1%D8%B2%D8%AF%D8%AA%D9%8A%20%D8%9F";
+
 static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
@@ -58,7 +61,6 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor clearColor];
     
-    // تأثير ضبابي (Blur) بدلاً من السواد
     UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
     UIVisualEffectView *bv = [[UIVisualEffectView alloc] initWithEffect:blur];
     bv.frame = self.view.bounds; 
@@ -71,9 +73,6 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     self.box.layer.cornerRadius = 28; 
     self.box.layer.borderColor = RDW_GOLD.CGColor; 
     self.box.layer.borderWidth = 1.5;
-    self.box.layer.shadowColor = [UIColor blackColor].CGColor;
-    self.box.layer.shadowOpacity = 0.5;
-    self.box.layer.shadowRadius = 10;
     [self.view addSubview:self.box];
     
     UIImageView *img = [[UIImageView alloc] initWithFrame:CGRectMake((w-120)/2, 30, 120, 120)];
@@ -118,18 +117,6 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     UILabel *dev = [[UILabel alloc] initWithFrame:CGRectMake(0, self.box.frame.size.height-30, w, 20)];
     dev.text = @"تم التطوير بواسطة كمال"; dev.textColor = [UIColor grayColor]; dev.textAlignment = NSTextAlignmentCenter; dev.font = [UIFont systemFontOfSize:11];
     [self.box addSubview:dev];
-    
-    [self showInitialLockedAlertIfNeeded];
-}
-
-- (void)showInitialLockedAlertIfNeeded {
-    BOOL shown = [[NSUserDefaults standardUserDefaults] boolForKey:@"RDW_INITIAL_LOCK_SHOWN"];
-    if (!shown) {
-        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"RDW_INITIAL_LOCK_SHOWN"];
-        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"🔒 التطبيق مقفل" message:@"الرجاء إدخال كود التفعيل لفتح التطبيق" preferredStyle:UIAlertControllerStyleAlert];
-        [a addAction:[UIAlertAction actionWithTitle:@"حسناً" style:UIAlertActionStyleDefault handler:nil]];
-        [self presentViewController:a animated:YES completion:nil];
-    }
 }
 
 - (void)goCheck {
@@ -141,12 +128,8 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         dispatch_async(dispatch_get_main_queue(), ^{
             if (!d) { [weakSelf showError:@"خطأ في الاتصال"]; return; }
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (!json || [json isEqual:[NSNull null]]) {
-                [weakSelf showError:@"الكود غير موجود!"];
-                return;
-            }
-            NSString *uBy = json[@"usedBy"] ?: @"";
-            NSString *myU = [RDWCore myID];
+            if (!json || [json isEqual:[NSNull null]]) { [weakSelf showError:@"الكود غير موجود!"]; return; }
+            NSString *uBy = json[@"usedBy"] ?: @"", *myU = [RDWCore myID];
             double expiry = [json[@"expiry"] doubleValue];
             if ([uBy isEqualToString:@""]) [weakSelf activateAndStackCode:code existingExpiry:expiry];
             else if ([uBy isEqualToString:myU]) [weakSelf finalizeActivationForCode:code expiry:expiry];
@@ -160,8 +143,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     double codeExpiry = [[NSDate date] timeIntervalSince1970] + (30 * 24 * 3600);
     NSDictionary *p = @{@"usedBy": myU, @"expiry": @(codeExpiry)};
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, code]]];
-    [req setHTTPMethod:@"PATCH"];
-    [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
+    [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
     __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         [weakSelf addDaysToUser:30 completion:^(BOOL ok) {
@@ -176,9 +158,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (void)addDaysToUser:(int)days completion:(void(^)(BOOL ok))completion {
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, [RDWCore myID]];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        double now = [[NSDate date] timeIntervalSince1970];
-        double addSec = days * 24 * 3600;
-        double newExp = now + addSec;
+        double now = [[NSDate date] timeIntervalSince1970], addSec = days * 24 * 3600, newExp = now + addSec;
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (j && ![j isEqual:[NSNull null]] && j[@"expiry"]) {
@@ -187,8 +167,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             }
         }
         NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:userURL]];
-        [req setHTTPMethod:@"PATCH"];
-        [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"expiry": @(newExp)} options:0 error:nil]];
+        [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"expiry": @(newExp)} options:0 error:nil]];
         [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
             if (completion) completion(e2==nil);
         }] resume];
@@ -214,14 +193,13 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     [UIView animateWithDuration:0.12 animations:^{ self.box.backgroundColor = [UIColor colorWithRed:0.35 green:0.05 blue:0.05 alpha:0.95]; } completion:^(BOOL fin){
         [UIView animateWithDuration:0.25 animations:^{ self.box.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.95]; }];
     }];
-    
-    // إعادة التوجيه لإنستجرام بعد ثانيتين عند الخطأ
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2.0*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_IG] options:@{} completionHandler:nil];
     });
 }
 
-- (void)goWA { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA] options:@{} completionHandler:nil]; }
+// تعديل رسالة الواتساب هنا لزر الشراء
+- (void)goWA { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_BUY] options:@{} completionHandler:nil]; }
 @end
 
 // --- Panel (3-finger) ---
@@ -300,8 +278,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
                                 NSMutableArray *arr = [[[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"] mutableCopy] ?: [NSMutableArray array];
                                 if (![arr containsObject:code]) [arr addObject:code];
                                 [[NSUserDefaults standardUserDefaults] setObject:arr forKey:@"RDW_KEYS"];
-                                [[NSUserDefaults standardUserDefaults] synchronize];
-                                [weakSelf refresh];
+                                [[NSUserDefaults standardUserDefaults] synchronize]; [weakSelf refresh];
                             }
                         });
                     }];
@@ -317,8 +294,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (j && ![j isEqual:[NSNull null]] && j[@"expiry"]) {
-                double cur = [j[@"expiry"] doubleValue];
-                if (cur > now) newE = cur + add;
+                double cur = [j[@"expiry"] doubleValue]; if (cur > now) newE = cur + add;
             }
         }
         NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:userURL]];
@@ -328,7 +304,10 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         }] resume];
     }] resume];
 }
-- (void)openSupport { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA] options:@{} completionHandler:nil]; }
+
+// تعديل رسالة الدعم الفني هنا
+- (void)openSupport { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_SUPPORT] options:@{} completionHandler:nil]; }
+
 - (void)showLocalError:(NSString *)m {
     [RDWCore vibe:NO]; [RDWCore playSoundNamed:@"error"];
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"خطأ" message:m preferredStyle:UIAlertControllerStyleAlert];
@@ -381,7 +360,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     UIViewController *top = [self performSelector:@selector(topMostController)];
     if (![top isKindOfClass:[RDWLoginVC class]]) {
         RDWLoginVC *vc = [[RDWLoginVC alloc] init];
-        vc.modalPresentationStyle = UIModalPresentationOverFullScreen; // لجعل تأثير الـ Blur يظهر خلف الـ VC
+        vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
         [top presentViewController:vc animated:YES completion:nil];
     }
 }
@@ -398,8 +377,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (void)rdw_periodicCheck {
     NSString *udid = [RDWCore myID];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_USERS, udid]] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        __block BOOL lock = NO;
-        double now = [[NSDate date] timeIntervalSince1970];
+        __block BOOL lock = NO; double now = [[NSDate date] timeIntervalSince1970];
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (!j || [j isEqual:[NSNull null]] || [j[@"expiry"] doubleValue] < now) lock = YES;
@@ -408,13 +386,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             dispatch_async(dispatch_get_main_queue(), ^{
                 [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"RDW_KEYS"];
                 [[NSUserDefaults standardUserDefaults] synchronize];
-                UIAlertController *a = [UIAlertController alertControllerWithTitle:@"انتهى الاشتراك" message:@"سيتم قفل التطبيق خلال 3 ثوانٍ..." preferredStyle:UIAlertControllerStyleAlert];
-                [[self performSelector:@selector(topMostController)] presentViewController:a animated:YES completion:nil];
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3.0*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                    [a dismissViewControllerAnimated:NO completion:^{
-                         if ([self respondsToSelector:@selector(rdw_lock)]) [self performSelector:@selector(rdw_lock)];
-                    }];
-                });
+                if ([self respondsToSelector:@selector(rdw_lock)]) [self performSelector:@selector(rdw_lock)];
             });
         }
     }] resume];
