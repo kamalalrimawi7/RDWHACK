@@ -1,14 +1,22 @@
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
+#import <objc/runtime.h>
 
 // --- روابط متجر RDW ---
-static NSString *const RDW_URL = @"https://rdw-server-default-rtdb.firebaseio.com/codes";
-static NSString *const RDW_USERS = @"https://rdw-server-default-rtdb.firebaseio.com/users";
+static NSString *const RDW_URL = @"https://rdw-test-default-rtdb.firebaseio.com/codes";
+static NSString *const RDW_USERS = @"https://rdw-test-default-rtdb.firebaseio.com/users";
 static NSString *const RDW_WA  = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%AA%D9%8A%3F";
 static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
+
+// --- إعلان الواجهات المضافة لـ UIWindow لتجنب أخطاء المترجم ---
+@interface UIWindow (RDW)
+- (void)rdw_lock;
+- (void)rdw_periodicCheck;
+- (void)rdw_p:(UILongPressGestureRecognizer*)g;
+@end
 
 // --- Helpers ---
 @interface RDWCore : NSObject
@@ -19,7 +27,15 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 
 @implementation RDWCore
 + (NSString *)myID {
-    return [[[UIDevice currentDevice] identifierForVendor] UUIDString];
+    NSString *stored = [[NSUserDefaults standardUserDefaults] stringForKey:@"RDW_UDID"];
+    if (!stored) {
+        NSString *newId = [[[UIDevice currentDevice] identifierForVendor] UUIDString];
+        if (!newId) newId = [[NSUUID UUID] UUIDString];
+        [[NSUserDefaults standardUserDefaults] setObject:newId forKey:@"RDW_UDID"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        stored = newId;
+    }
+    return stored;
 }
 + (void)vibe:(BOOL)impact {
     if (impact) {
@@ -30,7 +46,6 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     }
 }
 + (void)playSoundNamed:(NSString *)name {
-    // Simple system sound mapping (custom sounds require bundling)
     if ([name isEqualToString:@"success"]) AudioServicesPlaySystemSound(1057);
     else if ([name isEqualToString:@"error"]) AudioServicesPlaySystemSound(1053);
     else AudioServicesPlaySystemSound(1104);
@@ -60,12 +75,10 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     self.box.layer.cornerRadius = 28; self.box.layer.borderColor = RDW_GOLD.CGColor; self.box.layer.borderWidth = 1.5;
     [self.view addSubview:self.box];
 
-    // Logo image
     UIImageView *img = [[UIImageView alloc] initWithFrame:CGRectMake((w-120)/2, 30, 120, 120)];
     img.layer.cornerRadius = 60; img.layer.borderWidth = 3; img.layer.borderColor = RDW_GOLD.CGColor; img.clipsToBounds = YES;
     img.backgroundColor = [UIColor colorWithWhite:0.05 alpha:1];
     [self.box addSubview:img];
-    // load remote image async (non-blocking)
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:@"https://i.ibb.co/7xZ41GWF/IMG-3601.jpg"] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         if (d) dispatch_async(dispatch_get_main_queue(), ^{ img.image = [UIImage imageWithData:d]; });
     }] resume];
@@ -103,12 +116,10 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     dev.text = @"تم التطوير بواسطة كمال"; dev.textColor = [UIColor grayColor]; dev.textAlignment = NSTextAlignmentCenter; dev.font = [UIFont systemFontOfSize:11];
     [self.box addSubview:dev];
 
-    // Force app locked alert on first launch (even if UDID already has key)
     [self showInitialLockedAlertIfNeeded];
 }
 
 - (void)showInitialLockedAlertIfNeeded {
-    // Always require user to re-enter key on app install / first run
     BOOL shown = [[NSUserDefaults standardUserDefaults] boolForKey:@"RDW_INITIAL_LOCK_SHOWN"];
     if (!shown) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"RDW_INITIAL_LOCK_SHOWN"];
@@ -122,15 +133,17 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     NSString *code = [self.inputField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
     if (code.length < 4) { [self showError:@"مفتاح خاطئ وغير صالح!"]; return; }
 
-    // Fetch code node
     NSString *urlS = [NSString stringWithFormat:@"%@/%@.json", RDW_URL, code];
     NSURL *url = [NSURL URLWithString:urlS];
+    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (!d) { [self showError:@"خطأ في الاتصال"]; return; }
+            if (!d) { [strongSelf showError:@"خطأ في الاتصال"]; return; }
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (!json || [json isEqual:[NSNull null]]) {
-                [self showError:@"الكود غير موجود!"];
+                [strongSelf showError:@"الكود غير موجود!"];
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5*NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_IG] options:@{} completionHandler:nil];
                 });
@@ -141,13 +154,11 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
             double expiry = [json[@"expiry"] doubleValue];
 
             if ([uBy isEqualToString:@""]) {
-                // Activate: claim code and add to user expiry (stack)
-                [self activateAndStackCode:code existingExpiry:expiry];
+                [strongSelf activateAndStackCode:code existingExpiry:expiry];
             } else if ([uBy isEqualToString:myU]) {
-                // Already claimed by this device: mark locally and open
-                [self finalizeActivationForCode:code expiry:expiry];
+                [strongSelf finalizeActivationForCode:code expiry:expiry];
             } else {
-                [self showError:@"هذا المفتاح مستخدم على جهاز آخر!"];
+                [strongSelf showError:@"هذا المفتاح مستخدم على جهاز آخر!"];
             }
         });
     }] resume];
@@ -155,19 +166,20 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 
 - (void)activateAndStackCode:(NSString *)code existingExpiry:(double)existingExpiry {
     NSString *myU = [RDWCore myID];
-    // 1) Claim the code: set usedBy and expiry (30 days from now)
     double now = [[NSDate date] timeIntervalSince1970];
     double codeExpiry = now + (30 * 24 * 3600);
     NSDictionary *p = @{@"usedBy": myU, @"expiry": @(codeExpiry)};
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, code]]];
     [req setHTTPMethod:@"PATCH"];
     [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
+    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        // 2) Update user's aggregated expiry node (users/{udid})
-        [self addDaysToUser:30 completion:^(BOOL ok) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        [strongSelf addDaysToUser:30 completion:^(BOOL ok) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (ok) [self finalizeActivationForCode:code expiry:codeExpiry];
-                else [self showError:@"خطأ أثناء تفعيل الكود"];
+                if (ok) [strongSelf finalizeActivationForCode:code expiry:codeExpiry];
+                else [strongSelf showError:@"خطأ أثناء تفعيل الكود"];
             });
         }];
     }] resume];
@@ -176,7 +188,6 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 - (void)addDaysToUser:(int)days completion:(void(^)(BOOL ok))completion {
     NSString *udid = [RDWCore myID];
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, udid];
-    // Fetch current user expiry
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         double now = [[NSDate date] timeIntervalSince1970];
         double addSeconds = days * 24 * 3600;
@@ -185,7 +196,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (j && ![j isEqual:[NSNull null]] && j[@"expiry"]) {
                 double cur = [j[@"expiry"] doubleValue];
-                if (cur > now) newExpiry = cur + addSeconds; // stack on top of remaining
+                if (cur > now) newExpiry = cur + addSeconds;
             }
         }
         NSDictionary *payload = @{@"expiry": @(newExpiry)};
@@ -193,20 +204,18 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
         [req setHTTPMethod:@"PATCH"];
         [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:payload options:0 error:nil]];
         [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
-            completion(e2==nil);
+            if (completion) completion(e2==nil);
         }] resume];
     }] resume];
 }
 
 - (void)finalizeActivationForCode:(NSString *)code expiry:(double)expiry {
-    // Save primary key locally (for quick reference)
     NSMutableArray *arr = [[[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"] mutableCopy];
     if (!arr) arr = [NSMutableArray array];
     if (![arr containsObject:code]) [arr addObject:code];
     [[NSUserDefaults standardUserDefaults] setObject:arr forKey:@"RDW_KEYS"];
     [[NSUserDefaults standardUserDefaults] synchronize];
 
-    // Mark user node expiry fetch to update UI later
     [RDWCore vibe:YES]; [RDWCore playSoundNamed:@"success"];
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"✅ تم التفعيل" message:@"أهلاً بك في Rimawi Digital World" preferredStyle:UIAlertControllerStyleAlert];
     [self presentViewController:a animated:YES completion:^{
@@ -221,7 +230,6 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 - (void)showError:(NSString *)msg {
     self.msgL.text = msg;
     [RDWCore vibe:NO]; [RDWCore playSoundNamed:@"error"];
-    // flash red
     UIColor *orig = self.box.backgroundColor;
     [UIView animateWithDuration:0.12 animations:^{ self.box.backgroundColor = [UIColor colorWithRed:0.35 green:0.05 blue:0.05 alpha:0.95]; } completion:^(BOOL fin){
         [UIView animateWithDuration:0.25 animations:^{ self.box.backgroundColor = orig; }];
@@ -229,7 +237,6 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 }
 
 - (void)goWA {
-    // Open WA with message "لقد واجهت مشكلة، هل يمكنك مساعدتي؟"
     NSString *msg = @"لقد واجهت مشكلة، هل يمكنك مساعدتي؟";
     NSString *enc = [msg stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
     NSString *urlS = [NSString stringWithFormat:@"https://wa.me/972567171874?text=%@", enc];
@@ -283,7 +290,6 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 }
 
 - (void)refresh {
-    // Compute aggregated remaining days from user node
     NSString *udid = [RDWCore myID];
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, udid];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
@@ -310,17 +316,18 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
         [self showLocalError:@"مفتاح خاطئ وغير صالح"];
         return;
     }
-    // Fetch code node
     NSString *urlS = [NSString stringWithFormat:@"%@/%@.json", RDW_URL, code];
+    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:urlS] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (!d) { [self showLocalError:@"خطأ في الاتصال"]; return; }
+            if (!d) { [strongSelf showLocalError:@"خطأ في الاتصال"]; return; }
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (!json || [json isEqual:[NSNull null]]) { [self showLocalError:@"الكود غير موجود"]; return; }
+            if (!json || [json isEqual:[NSNull null]]) { [strongSelf showLocalError:@"الكود غير موجود"]; return; }
             NSString *uBy = json[@"usedBy"] ?: @"";
             NSString *myU = [RDWCore myID];
             if ([uBy isEqualToString:@""] || [uBy isEqualToString:myU]) {
-                // Claim code and add 30 days to user
                 double now = [[NSDate date] timeIntervalSince1970];
                 double codeExpiry = now + (30 * 24 * 3600);
                 NSDictionary *p = @{@"usedBy": myU, @"expiry": @(codeExpiry)};
@@ -328,24 +335,22 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
                 [req setHTTPMethod:@"PATCH"];
                 [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
                 [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
-                    // update user aggregated expiry
-                    [self addDaysToUser:30 completion:^(BOOL ok) {
+                    [strongSelf addDaysToUser:30 completion:^(BOOL ok) {
                         dispatch_async(dispatch_get_main_queue(), ^{
                             if (ok) {
-                                [self showLocalSuccess:@"تمت إضافة 30 يوم"];
-                                // store code locally
+                                [strongSelf showLocalSuccess:@"تمت إضافة 30 يوم"];
                                 NSMutableArray *arr = [[[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"] mutableCopy];
                                 if (!arr) arr = [NSMutableArray array];
                                 if (![arr containsObject:code]) [arr addObject:code];
                                 [[NSUserDefaults standardUserDefaults] setObject:arr forKey:@"RDW_KEYS"];
                                 [[NSUserDefaults standardUserDefaults] synchronize];
-                                [self refresh];
-                            } else [self showLocalError:@"خطأ أثناء التحديث"];
+                                [strongSelf refresh];
+                            } else [strongSelf showLocalError:@"خطأ أثناء التحديث"];
                         });
                     }];
                 }] resume];
             } else {
-                [self showLocalError:@"هذا المفتاح مستخدم"];
+                [strongSelf showLocalError:@"هذا المفتاح مستخدم"];
             }
         });
     }] resume];
@@ -370,7 +375,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
         [req setHTTPMethod:@"PATCH"];
         [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:payload options:0 error:nil]];
         [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
-            completion(e2==nil);
+            if (completion) completion(e2==nil);
         }] resume];
     }] resume];
 }
@@ -404,11 +409,18 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 
 // --- Main hook on UIWindow to enforce lock and periodic checks ---
 %hook UIWindow
+
 - (void)makeKeyAndVisible {
     %orig;
-    // Start periodic check timer (every 30s)
+
+    // Schedule periodic check (every 30s)
+    __weak typeof(self) weakWin = self;
     [NSTimer scheduledTimerWithTimeInterval:30 repeats:YES block:^(NSTimer *t) {
-        [self rdw_periodicCheck];
+        __strong typeof(weakWin) strongWin = weakWin;
+        if (!strongWin) return;
+        if ([strongWin respondsToSelector:@selector(rdw_periodicCheck)]) {
+            [(id)strongWin rdw_periodicCheck];
+        }
     }];
 
     // Add 3-finger long press (2 seconds)
@@ -416,14 +428,17 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     lp.numberOfTouchesRequired = 3; lp.minimumPressDuration = 2.0; [self addGestureRecognizer:lp];
 
     // Immediately lock on first run or if no local keys
-    NSString *k = [[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"];
-    if (!k) { [self rdw_lock]; }
+    NSArray *k = [[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"];
+    if (!k || k.count == 0) {
+        if ([self respondsToSelector:@selector(rdw_lock)]) {
+            [(id)self rdw_lock];
+        }
+    }
 }
 
 %new
 - (void)rdw_lock {
-    UIViewController *top = self.rootViewController;
-    while (top.presentedViewController) top = top.presentedViewController;
+    UIViewController *top = [self topMostController];
     if (![top isKindOfClass:[RDWLoginVC class]]) {
         RDWLoginVC *vc = [[RDWLoginVC alloc] init];
         vc.modalPresentationStyle = UIModalPresentationFullScreen;
@@ -444,11 +459,13 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 
 %new
 - (void)rdw_periodicCheck {
-    // Check user aggregated expiry and codes ownership
     NSString *udid = [RDWCore myID];
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, udid];
-    // 1) Check user expiry
+
+    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
         BOOL shouldLock = NO;
         double now = [[NSDate date] timeIntervalSince1970];
         if (d) {
@@ -460,12 +477,13 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
                 if (expiry < now) shouldLock = YES;
             }
         } else {
-            // network error: be conservative but don't lock immediately; check codes node
-            // proceed to check codes ownership
+            // network error: continue to check codes
         }
-        // 2) Verify that at least one code is still assigned to this UDID
+
         NSString *codesURL = [NSString stringWithFormat:@"%@.json", RDW_URL];
         [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:codesURL] completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
+            __strong typeof(weakSelf) strongSelf2 = weakSelf;
+            if (!strongSelf2) return;
             if (d2) {
                 NSDictionary *all = [NSJSONSerialization JSONObjectWithData:d2 options:0 error:nil];
                 BOOL hasValid = NO;
@@ -478,13 +496,15 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
                 }
                 if (!hasValid) shouldLock = YES;
             } else {
-                // if cannot fetch codes, be conservative: do not change lock state immediately
+                // cannot fetch codes: be conservative and do not change lock state immediately
             }
             if (shouldLock) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"RDW_KEYS"];
                     [[NSUserDefaults standardUserDefaults] synchronize];
-                    [self rdw_lock];
+                    if ([strongSelf2 respondsToSelector:@selector(rdw_lock)]) {
+                        [(id)strongSelf2 rdw_lock];
+                    }
                 });
             }
         }] resume];
@@ -492,3 +512,29 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 }
 
 %end
+
+// --- Utility category to find topmost controller in a scene-safe way ---
+@implementation UIWindow (RDWUtils)
+
+- (UIViewController *)topMostController {
+    UIWindow *keyWindow = nil;
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:[UIWindowScene class]]) {
+                UIWindowScene *ws = (UIWindowScene *)scene;
+                for (UIWindow *w in ws.windows) {
+                    if (w.isKeyWindow) { keyWindow = w; break; }
+                }
+                if (keyWindow) break;
+            }
+        }
+    }
+    if (!keyWindow) {
+        keyWindow = [UIApplication sharedApplication].delegate.window;
+    }
+    UIViewController *top = keyWindow.rootViewController;
+    while (top.presentedViewController) top = top.presentedViewController;
+    return top;
+}
+
+@end
