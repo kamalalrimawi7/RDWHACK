@@ -16,6 +16,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 - (void)rdw_lock;
 - (void)rdw_periodicCheck;
 - (void)rdw_p:(UILongPressGestureRecognizer*)g;
+- (UIViewController *)topMostController;
 @end
 
 // --- Helpers ---
@@ -51,6 +52,28 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     else AudioServicesPlaySystemSound(1104);
 }
 @end
+
+// --- Helper function to get topmost controller in a scene-safe way ---
+static UIViewController *RDWTopMostController(void) {
+    UIWindow *keyWindow = nil;
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:[UIWindowScene class]]) {
+                UIWindowScene *ws = (UIWindowScene *)scene;
+                for (UIWindow *w in ws.windows) {
+                    if (w.isKeyWindow) { keyWindow = w; break; }
+                }
+                if (keyWindow) break;
+            }
+        }
+    }
+    if (!keyWindow) {
+        keyWindow = [UIApplication sharedApplication].delegate.window ?: [UIApplication sharedApplication].windows.firstObject;
+    }
+    UIViewController *top = keyWindow.rootViewController;
+    while (top.presentedViewController) top = top.presentedViewController;
+    return top;
+}
 
 // --- Lock Screen VC ---
 @interface RDWLoginVC : UIViewController
@@ -172,14 +195,19 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, code]]];
     [req setHTTPMethod:@"PATCH"];
     [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
+
     __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (!strongSelf) return;
-        [strongSelf addDaysToUser:30 completion:^(BOOL ok) {
+
+        __weak typeof(strongSelf) weakInner = strongSelf;
+        [weakInner addDaysToUser:30 completion:^(BOOL ok) {
+            __strong typeof(weakInner) strongInner = weakInner;
+            if (!strongInner) return;
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (ok) [strongSelf finalizeActivationForCode:code expiry:codeExpiry];
-                else [strongSelf showError:@"خطأ أثناء تفعيل الكود"];
+                if (ok) [strongInner finalizeActivationForCode:code expiry:codeExpiry];
+                else [strongInner showError:@"خطأ أثناء تفعيل الكود"];
             });
         }];
     }] resume];
@@ -188,7 +216,15 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 - (void)addDaysToUser:(int)days completion:(void(^)(BOOL ok))completion {
     NSString *udid = [RDWCore myID];
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, udid];
+
+    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) {
+            if (completion) completion(NO);
+            return;
+        }
+
         double now = [[NSDate date] timeIntervalSince1970];
         double addSeconds = days * 24 * 3600;
         double newExpiry = now + addSeconds;
@@ -292,6 +328,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 - (void)refresh {
     NSString *udid = [RDWCore myID];
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, udid];
+    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         int days = 0;
         if (d) {
@@ -304,8 +341,10 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
             }
         }
         dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (!strongSelf) return;
             NSString *k = [[[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"] firstObject] ?: @"-";
-            self.lbl.text = [NSString stringWithFormat:@"كودك: %@\nمتبقي: %d يوم", k, days];
+            strongSelf.lbl.text = [NSString stringWithFormat:@"كودك: %@\nمتبقي: %d يوم", k, days];
         });
     }] resume];
 }
@@ -317,8 +356,9 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
         return;
     }
     NSString *urlS = [NSString stringWithFormat:@"%@/%@.json", RDW_URL, code];
+    NSURL *url = [NSURL URLWithString:urlS];
     __weak typeof(self) weakSelf = self;
-    [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:urlS] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+    [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (!strongSelf) return;
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -334,18 +374,28 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
                 NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, code]]];
                 [req setHTTPMethod:@"PATCH"];
                 [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
+
+                __weak typeof(strongSelf) weakInner = strongSelf;
                 [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
-                    [strongSelf addDaysToUser:30 completion:^(BOOL ok) {
+                    __strong typeof(weakInner) strongInner = weakInner;
+                    if (!strongInner) return;
+
+                    __weak typeof(strongInner) weakInner2 = strongInner;
+                    [weakInner2 addDaysToUser:30 completion:^(BOOL ok) {
+                        __strong typeof(weakInner2) strongInner2 = weakInner2;
+                        if (!strongInner2) return;
                         dispatch_async(dispatch_get_main_queue(), ^{
                             if (ok) {
-                                [strongSelf showLocalSuccess:@"تمت إضافة 30 يوم"];
+                                [strongInner2 showLocalSuccess:@"تمت إضافة 30 يوم"];
                                 NSMutableArray *arr = [[[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"] mutableCopy];
                                 if (!arr) arr = [NSMutableArray array];
                                 if (![arr containsObject:code]) [arr addObject:code];
                                 [[NSUserDefaults standardUserDefaults] setObject:arr forKey:@"RDW_KEYS"];
                                 [[NSUserDefaults standardUserDefaults] synchronize];
-                                [strongSelf refresh];
-                            } else [strongSelf showLocalError:@"خطأ أثناء التحديث"];
+                                [strongInner2 refresh];
+                            } else {
+                                [strongInner2 showLocalError:@"خطأ أثناء التحديث"];
+                            }
                         });
                     }];
                 }] resume];
@@ -359,7 +409,15 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
 - (void)addDaysToUser:(int)days completion:(void(^)(BOOL ok))completion {
     NSString *udid = [RDWCore myID];
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, udid];
+
+    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) {
+            if (completion) completion(NO);
+            return;
+        }
+
         double now = [[NSDate date] timeIntervalSince1970];
         double addSeconds = days * 24 * 3600;
         double newExpiry = now + addSeconds;
@@ -391,8 +449,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     [RDWCore vibe:NO]; [RDWCore playSoundNamed:@"error"];
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"خطأ" message:m preferredStyle:UIAlertControllerStyleAlert];
     [a addAction:[UIAlertAction actionWithTitle:@"حسناً" style:UIAlertActionStyleDefault handler:nil]];
-    UIViewController *top = [UIApplication sharedApplication].keyWindow.rootViewController;
-    while (top.presentedViewController) top = top.presentedViewController;
+    UIViewController *top = RDWTopMostController();
     [top presentViewController:a animated:YES completion:nil];
 }
 
@@ -400,8 +457,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     [RDWCore vibe:YES]; [RDWCore playSoundNamed:@"success"];
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"نجاح" message:m preferredStyle:UIAlertControllerStyleAlert];
     [a addAction:[UIAlertAction actionWithTitle:@"حسناً" style:UIAlertActionStyleDefault handler:nil]];
-    UIViewController *top = [UIApplication sharedApplication].keyWindow.rootViewController;
-    while (top.presentedViewController) top = top.presentedViewController;
+    UIViewController *top = RDWTopMostController();
     [top presentViewController:a animated:YES completion:nil];
 }
 
@@ -466,7 +522,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (!strongSelf) return;
-        BOOL shouldLock = NO;
+        __block BOOL shouldLock = NO;
         double now = [[NSDate date] timeIntervalSince1970];
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
@@ -530,7 +586,7 @@ static NSString *const RDW_IG  = @"https://www.instagram.com/rimawi.dw";
         }
     }
     if (!keyWindow) {
-        keyWindow = [UIApplication sharedApplication].delegate.window;
+        keyWindow = [UIApplication sharedApplication].delegate.window ?: [UIApplication sharedApplication].windows.firstObject;
     }
     UIViewController *top = keyWindow.rootViewController;
     while (top.presentedViewController) top = top.presentedViewController;
