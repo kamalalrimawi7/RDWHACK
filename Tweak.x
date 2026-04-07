@@ -1,18 +1,20 @@
 #import <Foundation/Foundation.h>
 
-// تعريف الكلاسات للمترجم ليتخطى خطأ "Undeclared identifier"
+// --- تعريف الكلاسات للمترجم (مهم جداً لحل خطأ Makefile) ---
 @interface RCCustomerInfo : NSObject
 - (NSSet *)activeEntitlements;
 @end
 
 @interface RCPurchases : NSObject
++ (instancetype)sharedPurchases;
 - (void)customerInfoWithCompletion:(void(^)(RCCustomerInfo *customerInfo, NSError *error))completion;
 @end
+// -------------------------------------------------------
 
-// بداية الهوك
 %hook RCCustomerInfo
 - (NSSet *)activeEntitlements {
-    return [NSSet setWithObjects:@"pro", @"premium", @"unlimited", nil];
+    // إرجاع ميزات البريميوم
+    return [NSSet setWithObjects:@"pro", @"premium", @"unlimited", @"plus", nil];
 }
 %end
 
@@ -20,9 +22,9 @@
 - (void)customerInfoWithCompletion:(void(^)(id customerInfo, NSError *error))completion {
     %orig(^(id customerInfo, NSError *error) {
         if (completion) {
+            // إرجاع المعلومات للمستخدم وكأنها بريميوم وبدون أخطاء
             completion(customerInfo, nil);
         }
     });
 }
 %end
-
