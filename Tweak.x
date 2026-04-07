@@ -3,7 +3,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
 
-// --- تعريفات الواجهة لمنع أخطاء المترجم ---
+// --- تعريفات الواجهة لمنع أخطاء المترجم (Forward Declarations) ---
 @interface UIWindow (RDW)
 - (void)rdw_lockNow;
 - (void)rdw_periodicCheck;
@@ -16,11 +16,12 @@ static NSString *const RDW_URL    = @"https://rdw-server-default-rtdb.firebaseio
 static NSString *const RDW_USERS  = @"https://rdw-server-default-rtdb.firebaseio.com/users";
 
 static NSString *const RDW_WA_BUY = @"https://wa.me/972567171874?text=%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%86%D9%8A%20%D8%B4%D8%B1%D8%A7%D8%A1%20%D9%83%D9%88%D8%AF%20%D8%AA%D9%81%D8%B9%D9%8A%D9%84%20RDW%20%D9%84%D9%88%20%D8%B3%D9%85%D8%AD%D8%AA%20%D8%9F";
-static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%AA%D9%8A%D8%9F";static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
+static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%AA%D9%8I%D8%9F";
+static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
 
-// --- Helper Class (النظام الأساسي) ---
+// --- Helper Class ---
 @interface RDWCore : NSObject
 + (NSString *)myID;
 + (NSString *)getAppName;
@@ -94,28 +95,22 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor clearColor];
     
-    // تعديل البلور ليكون أخف (Light) كما طلبت
-    UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleLight];
+    // خلفية ضبابية
+    UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
     UIVisualEffectView *bv = [[UIVisualEffectView alloc] initWithEffect:blur];
-    bv.frame = self.view.bounds; 
+    bv.frame = self.view.bounds;
     bv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:bv];
     
     CGFloat w = MIN(self.view.frame.size.width - 40, 340);
     self.box = [[UIView alloc] initWithFrame:CGRectMake((self.view.frame.size.width-w)/2, (self.view.frame.size.height-600)/2, w, 580)];
-    
-    // زيادة الشفافية (0.75) ليكون المظهر زجاجياً أكثر
-    self.box.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.75];
+    self.box.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.85];
     self.box.layer.cornerRadius = 35; 
     self.box.layer.borderColor = RDW_GOLD.CGColor; 
     self.box.layer.borderWidth = 2.0;
-    // إضافة ظل خفيف للذهب لإعطاء عمق
-    self.box.layer.shadowColor = RDW_GOLD.CGColor;
-    self.box.layer.shadowOffset = CGSizeMake(0, 0);
-    self.box.layer.shadowRadius = 10;
-    self.box.layer.shadowOpacity = 0.4;
     [self.view addSubview:self.box];
     
+    // الصورة الشخصية للمتجر
     UIImageView *img = [[UIImageView alloc] initWithFrame:CGRectMake((w-110)/2, 30, 110, 110)];
     img.layer.cornerRadius = 55; img.layer.borderWidth = 2; img.layer.borderColor = RDW_GOLD.CGColor;
     img.clipsToBounds = YES;
@@ -147,15 +142,14 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     self.inputField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     [self.box addSubview:self.inputField];
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (@available(iOS 13.0, *)) {
         self.loader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
     } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         self.loader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-    }
 #pragma clang diagnostic pop
-
+    }
     self.loader.center = CGPointMake(w/2, 310);
     [self.box addSubview:self.loader];
     
@@ -188,31 +182,27 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     
     [self.loader startAnimating];
     NSString *urlS = [NSString stringWithFormat:@"%@/%@.json", RDW_URL, code];
-    __weak typeof(self) weakSelf = self;
+    
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:urlS] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            [weakSelf.loader stopAnimating];
-            if (!d) { [weakSelf showError:@"فشل الاتصال بالسيرفر"]; return; }
+            [self.loader stopAnimating];
+            if (!d) { [self showError:@"فشل الاتصال بالسيرفر"]; return; }
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (!json || [json isEqual:[NSNull null]]) { [weakSelf showError:@"هذا الكود غير موجود!"]; return; }
+            if (!json || [json isEqual:[NSNull null]]) { [self showError:@"هذا الكود غير موجود!"]; return; }
             
             NSString *targetApp = json[@"target_app"];
             if (targetApp && targetApp.length > 0 && ![targetApp isEqualToString:[RDWCore getAppBundleID]]) {
-                [weakSelf showError:@"هذا الكود غير مخصص لهذا التطبيق!"];
+                [self showError:@"هذا الكود غير مخصص لهذا التطبيق!"];
                 return;
             }
- 
+
             NSString *uBy = json[@"usedBy"] ?: @"", *myU = [RDWCore myID];
-            
-            // إصلاح منطق التكديس (Stacking Logic):
             if ([uBy isEqualToString:myU]) {
-                [weakSelf showError:@"لقد استخدمت هذا الكود مسبقاً!"];
+                [self showError:@"لقد استخدمت هذا الكود مسبقاً!"];
             } else if ([uBy isEqualToString:@""]) {
-                // الكود جديد تماماً
-                [weakSelf registerCodeToServer:code name:name];
+                [self registerCodeToServer:code name:name];
             } else {
-                // الكود مسجل لجهاز آخر
-                [weakSelf showError:@"هذا الكود مستخدم من جهاز آخر!"];
+                [self showError:@"هذا الكود مستخدم من جهاز آخر!"];
             }
         });
     }] resume];
@@ -226,12 +216,11 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, code]]];
     [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
     
-    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        [weakSelf syncUserWithDays:30 name:name code:code completion:^(BOOL ok) {
+        [self syncUserWithDays:30 name:name code:code completion:^(BOOL ok) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (ok) [weakSelf finalizeSuccess:code];
-                else [weakSelf showError:@"حدث خطأ في المزامنة"];
+                if (ok) [self finalizeSuccess:code];
+                else [self showError:@"حدث خطأ في المزامنة"];
             });
         }];
     }] resume];
@@ -242,7 +231,6 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userPath] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         NSDate *now = [NSDate date];
         NSDate *targetExp = [now dateByAddingTimeInterval:days * 24 * 3600];
-        
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (j && ![j isEqual:[NSNull null]] && j[@"expire_date"]) {
@@ -252,7 +240,6 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
                 }
             }
         }
-        
         NSDictionary *update = @{
             @"full_name": name,
             @"app_name": [RDWCore getAppName],
@@ -287,7 +274,7 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     self.msgL.text = msg; [RDWCore vibe:NO]; [RDWCore playSoundNamed:@"error"];
     [UIView animateWithDuration:0.1 animations:^{ self.box.backgroundColor = [UIColor colorWithRed:0.4 green:0.1 blue:0.1 alpha:0.8];
     } completion:^(BOOL f){
-        [UIView animateWithDuration:0.3 animations:^{ self.box.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.75]; }];
+        [UIView animateWithDuration:0.3 animations:^{ self.box.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.85]; }];
     }];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2.0*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_IG] options:@{} completionHandler:nil];
@@ -309,8 +296,7 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        // زيادة الشفافية في البانل أيضاً
-        self.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.8]; 
+        self.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.9]; 
         self.layer.cornerRadius = 25;
         self.layer.borderColor = RDW_GOLD.CGColor; self.layer.borderWidth = 2.5; self.tag = 888;
         
@@ -319,22 +305,23 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
         self.infoL.textColor = [UIColor whiteColor]; self.infoL.textAlignment = NSTextAlignmentCenter;
         self.infoL.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
         [self addSubview:self.infoL];
+        
         self.codeIn = [[UITextField alloc] initWithFrame:CGRectMake(20, 105, frame.size.width-40, 45)];
         self.codeIn.placeholder = @"أدخل كود التمديد هنا"; self.codeIn.backgroundColor = [UIColor colorWithWhite:1 alpha:0.1];
         self.codeIn.textAlignment = NSTextAlignmentCenter; self.codeIn.layer.cornerRadius = 12; self.codeIn.textColor = [UIColor whiteColor];
         [self addSubview:self.codeIn];
         
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         if (@available(iOS 13.0, *)) {
             self.pLoader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
         } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             self.pLoader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
-        }
 #pragma clang diagnostic pop
-
+        }
         self.pLoader.center = CGPointMake(frame.size.width/2, 175);
         [self addSubview:self.pLoader];
+        
         self.btnX = [UIButton buttonWithType:UIButtonTypeSystem];
         self.btnX.frame = CGRectMake(20, 160, frame.size.width-40, 45);
         [self.btnX setTitle:@"تجديد الاشتراك" forState:0];
@@ -372,24 +359,39 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             self.infoL.text = [NSString stringWithFormat:@"👤 المستفيد: %@\n⏳ متبقي: %d يوم\n📱 التطبيق: %@\n🆔 ID: %@", name, MAX(0, dLeft), app, [RDWCore myID]];
-            // قفل التطبيق فوراً إذا صفر الوقت
+            // التحقق إذا صفر الوقت لإظهار شاشة القفل فوراً
             if (d && dLeft <= 0) {
-                 [(UIWindow *)[UIApplication sharedApplication].keyWindow rdw_lockNow];
+                 [self triggerLockScreen];
             }
         });
     }] resume];
+}
+
+- (void)triggerLockScreen {
+    UIWindow *window = nil;
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:[UIWindowScene class]]) {
+                for (UIWindow *w in ((UIWindowScene *)scene).windows) { if (w.isKeyWindow) { window = w; break; } }
+            }
+        }
+    }
+    if (!window) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        window = [UIApplication sharedApplication].keyWindow;
+#pragma clang diagnostic pop
+    }
+    if (!window) window = [UIApplication sharedApplication].windows.firstObject;
+    [window rdw_lockNow];
 }
 
 - (void)doStack {
     [self endEditing:YES];
     NSString *c = [self.codeIn.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
     if (c.length < 4) {
-        [RDWCore vibe:NO];
-        self.codeIn.text = @"";
-        self.codeIn.placeholder = @"يرجى ادخال رمز صالح";
-        return;
+        [RDWCore vibe:NO]; self.codeIn.text = @""; self.codeIn.placeholder = @"يرجى ادخال رمز صالح"; return;
     }
-    
     [self.pLoader startAnimating];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, c]] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -397,32 +399,21 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
             if (!d) return;
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (j && ![j isEqual:[NSNull null]]) {
-               
                 NSString *targetApp = j[@"target_app"];
                 if (targetApp && targetApp.length > 0 && ![targetApp isEqualToString:[RDWCore getAppBundleID]]) {
-                    [RDWCore playSoundNamed:@"error"];
-                    self.codeIn.text = @"";
-                    self.codeIn.placeholder = @"الكود غير مخصص لهذا التطبيق!";
-                    return;
+                    [RDWCore playSoundNamed:@"error"]; self.codeIn.text = @""; self.codeIn.placeholder = @"هذا الكود غير مخصص لهذا التطبيق!"; return;
                 }
                 
                 NSString *uBy = j[@"usedBy"] ?: @"", *myU = [RDWCore myID];
-                if ([uBy isEqualToString:@""]) {
-                    [self syncStack:c];
-                } else if ([uBy isEqualToString:myU]) {
-                    [RDWCore playSoundNamed:@"error"];
-                    self.codeIn.placeholder = @"لقد استخدمت هذا الكود مسبقاً!";
-                    self.codeIn.text = @"";
-                } else { 
-                    [RDWCore playSoundNamed:@"error"];
-                    self.codeIn.placeholder = @"هذا الكود مستخدم من جهاز آخر!";
-                    self.codeIn.text = @"";
+                // الحماية المطلوبة: منع تكرار استخدام الكود لنفس الشخص
+                if ([uBy isEqualToString:myU]) {
+                     [RDWCore playSoundNamed:@"error"]; self.codeIn.text = @""; self.codeIn.placeholder = @"لقد استخدمت هذا الكود سابقا!";
+                } else if ([uBy isEqualToString:@""]) {
+                     [self syncStack:c];
+                } else {
+                     [RDWCore playSoundNamed:@"error"]; self.codeIn.placeholder = @"هذا الكود مستخدم من جهاز آخر!"; self.codeIn.text = @"";
                 }
-            } else {
-                [RDWCore playSoundNamed:@"error"];
-                self.codeIn.placeholder = @"كود غير صحيح!";
-                self.codeIn.text = @"";
-            }
+            } else { [RDWCore playSoundNamed:@"error"]; self.codeIn.placeholder = @"كود غير صحيح!"; self.codeIn.text = @""; }
         });
     }] resume];
 }
@@ -431,8 +422,7 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     NSDate *newExpDate = [[NSDate date] dateByAddingTimeInterval:30*24*3600];
     NSDictionary *p = @{@"usedBy": [RDWCore myID], @"expire_date": [RDWCore dateToStr:newExpDate]};
     NSMutableURLRequest *re = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, c]]];
-    [re setHTTPMethod:@"PATCH"];
-    [re setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
+    [re setHTTPMethod:@"PATCH"]; [re setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
     [[[NSURLSession sharedSession] dataTaskWithRequest:re completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         [self addDays:30 code:c];
     }] resume];
@@ -456,9 +446,7 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
         [[[NSURLSession sharedSession] dataTaskWithRequest:re completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
             dispatch_async(dispatch_get_main_queue(), ^{ 
                 [RDWCore vibe:YES]; [RDWCore playSoundNamed:@"success"];
-                [self reloadData]; 
-                self.codeIn.text = @"";
-                self.codeIn.placeholder = @"تم التجديد بنجاح ✅";
+                [self reloadData]; self.codeIn.text = @""; self.codeIn.placeholder = @"تم التجديد بنجاح ✅";
             });
         }] resume];
     }] resume];
@@ -466,7 +454,7 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
 - (void)goS { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_SUPPORT] options:@{} completionHandler:nil]; }
 @end
 
-// --- Hooks Core (UIWindow) ---
+// --- Hooks ---
 %hook UIWindow
 - (void)makeKeyAndVisible {
     %orig;
@@ -516,7 +504,7 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
         BOOL shouldLock = NO;
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            // إذا قمت بتصفير الوقت أو حذف المستخدم من Firebase يغلق فوراً
+            // الحماية: إذا قمت بتصفير الوقت أو حذف المستخدم من Firebase يغلق فوراً
             if (!j || [j isEqual:[NSNull null]]) shouldLock = YES;
             else {
                 NSDate *exp = [RDWCore strToDate:j[@"expire_date"]];
