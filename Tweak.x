@@ -16,7 +16,8 @@ static NSString *const RDW_URL    = @"https://rdw-server-default-rtdb.firebaseio
 static NSString *const RDW_USERS  = @"https://rdw-server-default-rtdb.firebaseio.com/users";
 
 static NSString *const RDW_WA_BUY = @"https://wa.me/972567171874?text=%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%86%D9%8A%20%D8%B4%D8%B1%D8%A7%D8%A1%20%D9%83%D9%88%D8%AF%20%D8%AA%D9%81%D8%B9%D9%8A%D9%84%20RDW%20%D9%84%D9%88%20%D8%B3%D9%85%D8%AD%D8%AA%20%D8%9F";
-static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%AA%D9%8A%D8%9F";static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
+static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%AA%D9%8A%D8%9F";
+static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
 
@@ -24,6 +25,7 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
 @interface RDWCore : NSObject
 + (NSString *)myID;
 + (NSString *)getAppName;
++ (NSString *)getAppBundleID;
 + (void)vibe:(BOOL)impact;
 + (void)playSoundNamed:(NSString *)name;
 + (NSString *)dateToStr:(NSDate *)d;
@@ -46,6 +48,9 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     NSString *name = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"];
     if (!name) name = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleName"];
     return name ?: @"Unknown App";
+}
++ (NSString *)getAppBundleID {
+    return [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown.bundle.id";
 }
 + (void)vibe:(BOOL)impact {
     if (impact) {
@@ -133,7 +138,12 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     self.inputField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     [self.box addSubview:self.inputField];
     
-    self.loader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    // إصلاح مشكلة Deprecation هنا
+    if (@available(iOS 13.0, *)) {
+        self.loader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    } else {
+        self.loader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    }
     self.loader.center = CGPointMake(w/2, 310);
     [self.box addSubview:self.loader];
     
@@ -171,6 +181,13 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
             if (!d) { [weakSelf showError:@"فشل الاتصال بالسيرفر"]; return; }
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (!json || [json isEqual:[NSNull null]]) { [weakSelf showError:@"هذا الكود غير موجود!"]; return; }
+            
+            // إضافة حماية (قفل التطبيق)
+            NSString *targetApp = json[@"target_app"];
+            if (targetApp && targetApp.length > 0 && ![targetApp isEqualToString:[RDWCore getAppBundleID]]) {
+                [weakSelf showError:@"هذا الكود غير مخصص لهذا التطبيق!"];
+                return;
+            }
             
             NSString *uBy = json[@"usedBy"] ?: @"", *myU = [RDWCore myID];
             if ([uBy isEqualToString:@""]) {
@@ -222,6 +239,7 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
         NSDictionary *update = @{
             @"full_name": name,
             @"app_name": [RDWCore getAppName],
+            @"app_id": [RDWCore getAppBundleID], // يظهر لك الـ ID في اللوحة
             @"expire_date": [RDWCore dateToStr:targetExp],
             [NSString stringWithFormat:@"history/%@", code]: [RDWCore dateToStr:now]
         };
@@ -284,7 +302,12 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
         self.codeIn.textAlignment = NSTextAlignmentCenter; self.codeIn.layer.cornerRadius = 12; self.codeIn.textColor = [UIColor whiteColor];
         [self addSubview:self.codeIn];
         
-        self.pLoader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
+        // إصلاح مشكلة Deprecation هنا
+        if (@available(iOS 13.0, *)) {
+            self.pLoader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+        } else {
+            self.pLoader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
+        }
         self.pLoader.center = CGPointMake(frame.size.width/2, 175);
         [self addSubview:self.pLoader];
         
@@ -336,12 +359,24 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
             [self.pLoader stopAnimating];
             if (!d) return;
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (j && ![j isEqual:[NSNull null]] && ([j[@"usedBy"] isEqualToString:@""] || !j[@"usedBy"])) {
-                [self syncStack:c];
-            } else { 
-                [RDWCore playSoundNamed:@"error"];
-                self.codeIn.placeholder = @"الكود مستخدم مسبقاً!";
-                self.codeIn.text = @"";
+            
+            if (j && ![j isEqual:[NSNull null]]) {
+                // إضافة حماية (قفل التطبيق) للوحة التمديد
+                NSString *targetApp = j[@"target_app"];
+                if (targetApp && targetApp.length > 0 && ![targetApp isEqualToString:[RDWCore getAppBundleID]]) {
+                    [RDWCore playSoundNamed:@"error"];
+                    self.codeIn.text = @"";
+                    self.codeIn.placeholder = @"الكود غير مخصص لهذا التطبيق!";
+                    return;
+                }
+                
+                if ([j[@"usedBy"] isEqualToString:@""] || !j[@"usedBy"]) {
+                    [self syncStack:c];
+                } else { 
+                    [RDWCore playSoundNamed:@"error"];
+                    self.codeIn.placeholder = @"الكود مستخدم مسبقاً!";
+                    self.codeIn.text = @"";
+                }
             }
         });
     }] resume];
@@ -364,7 +399,9 @@ static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:uPath] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         NSDate *now = [NSDate date];
         NSDate *finalExp = [now dateByAddingTimeInterval:days*24*3600];
-        NSString *fullName = @"Unknown";
+        
+        // إصلاح مشكلة المتغير غير المستخدم بإضافة __unused
+        __unused NSString *fullName = @"Unknown";
         
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
