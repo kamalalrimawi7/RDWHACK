@@ -16,8 +16,7 @@ static NSString *const RDW_URL    = @"https://rdw-server-default-rtdb.firebaseio
 static NSString *const RDW_USERS  = @"https://rdw-server-default-rtdb.firebaseio.com/users";
 
 static NSString *const RDW_WA_BUY = @"https://wa.me/972567171874?text=%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%86%D9%8A%20%D8%B4%D8%B1%D8%A7%D8%A1%20%D9%83%D9%88%D8%AF%20%D8%AA%D9%81%D8%B9%D9%8A%D9%84%20RDW%20%D9%84%D9%88%20%D8%B3%D9%85%D8%AD%D8%AA%20%D8%9F";
-static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%AA%D9%8A%D8%9F";
-static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
+static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%AA%D9%8A%D8%9F";static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
 
