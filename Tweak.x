@@ -1,12 +1,12 @@
 #import <Foundation/Foundation.h>
 
-// --- تصحيح تعريف الكلاسات للمترجم ---
+// --- تعريف الكلاسات للمترجم بشكل دقيق ---
 @interface RCCustomerInfo : NSObject
 - (NSSet *)activeEntitlements;
 @end
 
 @interface RCPurchases : NSObject
-+ (void)customerInfoWithCompletion:(void(^)(RCCustomerInfo *customerInfo, NSError *error))completion;
+- (void)customerInfoWithCompletion:(void(^)(RCCustomerInfo *customerInfo, NSError *error))completion;
 @end
 // ------------------------------------
 
@@ -17,7 +17,7 @@
 %end
 
 %hook RCPurchases
-+ (void)customerInfoWithCompletion:(void(^)(id customerInfo, NSError *error))completion {
+- (void)customerInfoWithCompletion:(void(^)(id customerInfo, NSError *error))completion {
     %orig(^(id customerInfo, NSError *error) {
         if (completion) {
             completion(customerInfo, nil);
