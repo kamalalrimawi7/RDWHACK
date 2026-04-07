@@ -1,18 +1,21 @@
 #import <Foundation/Foundation.h>
 
-// هوك لمكتبة RevenueCat لضمان تفعيل الاشتراك
+// تعريف الكلاسات للمترجم ليتخطى خطأ "Undeclared identifier"
+@interface RCCustomerInfo : NSObject
+- (NSSet *)activeEntitlements;
+@end
+
+@interface RCPurchases : NSObject
+- (void)customerInfoWithCompletion:(void(^)(RCCustomerInfo *customerInfo, NSError *error))completion;
+@end
+
+// بداية الهوك
 %hook RCCustomerInfo
 - (NSSet *)activeEntitlements {
-    // نرسل مسميات البريميوم الشائعة لضمان فتح الميزات
-    return [NSSet setWithObjects:@"pro", @"premium", @"unlimited", @"plus", nil];
-}
-
-- (BOOL)isPremium {
-    return YES;
+    return [NSSet setWithObjects:@"pro", @"premium", @"unlimited", nil];
 }
 %end
 
-// هوك إضافي للتأكد من حالة الشراء
 %hook RCPurchases
 - (void)customerInfoWithCompletion:(void(^)(id customerInfo, NSError *error))completion {
     %orig(^(id customerInfo, NSError *error) {
@@ -20,16 +23,6 @@
             completion(customerInfo, nil);
         }
     });
-}
-%end
-
-// منع التطبيق من اكتشاف التعديل (Anti-Jailbreak/Anti-Tamper)
-%hook NSBundle
-- (id)objectForInfoDictionaryKey:(NSString *)key {
-    if ([key isEqualToString:@"SignerIdentity"]) {
-        return nil;
-    }
-    return %orig;
 }
 %end
 
