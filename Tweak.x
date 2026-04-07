@@ -9,8 +9,7 @@ static NSString *const RDW_USERS = @"https://rdw-server-default-rtdb.firebaseio.
 
 // الروابط المحدثة بالرسائل المطلوبة
 static NSString *const RDW_WA_BUY = @"https://wa.me/972567171874?text=%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%86%D9%8A%20%D8%B4%D8%B1%D8%A7%D8%A1%20%D9%83%D9%88%D8%AF%20%D8%AA%D9%81%D8%B9%D9%8A%D9%84%20RDW%20%D9%84%D9%88%20%D8%B3%D9%85%D8%AD%D8%AA%20%D8%9F";
-static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%2C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B1%D8%B2%D8%AF%D8%AA%D9%8A%20%D8%9F";
-
+static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%2C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B1%D8%B9%D8%AF%D8%AA%D9%8A%20%D8%9F";
 static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
@@ -20,6 +19,8 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 + (NSString *)myID;
 + (void)vibe:(BOOL)impact;
 + (void)playSoundNamed:(NSString *)name;
++ (NSString *)dateToStr:(NSDate *)d;
++ (NSDate *)strToDate:(NSString *)s;
 @end
 
 @implementation RDWCore
@@ -46,6 +47,16 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     if ([name isEqualToString:@"success"]) AudioServicesPlaySystemSound(1057);
     else if ([name isEqualToString:@"error"]) AudioServicesPlaySystemSound(1053);
     else AudioServicesPlaySystemSound(1104);
+}
++ (NSString *)dateToStr:(NSDate *)d {
+    NSDateFormatter *f = [[NSDateFormatter alloc] init];
+    [f setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    return [f stringFromDate:d];
+}
++ (NSDate *)strToDate:(NSString *)s {
+    NSDateFormatter *f = [[NSDateFormatter alloc] init];
+    [f setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    return [f dateFromString:s];
 }
 @end
 
@@ -130,25 +141,24 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (!json || [json isEqual:[NSNull null]]) { [weakSelf showError:@"الكود غير موجود!"]; return; }
             NSString *uBy = json[@"usedBy"] ?: @"", *myU = [RDWCore myID];
-            double expiry = [json[@"expiry"] doubleValue];
-            if ([uBy isEqualToString:@""]) [weakSelf activateAndStackCode:code existingExpiry:expiry];
-            else if ([uBy isEqualToString:myU]) [weakSelf finalizeActivationForCode:code expiry:expiry];
+            if ([uBy isEqualToString:@""]) [weakSelf activateAndStackCode:code];
+            else if ([uBy isEqualToString:myU]) [weakSelf finalizeActivationForCode:code];
             else [weakSelf showError:@"هذا المفتاح مستخدم على جهاز آخر!"];
         });
     }] resume];
 }
 
-- (void)activateAndStackCode:(NSString *)code existingExpiry:(double)existingExpiry {
+- (void)activateAndStackCode:(NSString *)code {
     NSString *myU = [RDWCore myID];
-    double codeExpiry = [[NSDate date] timeIntervalSince1970] + (30 * 24 * 3600);
-    NSDictionary *p = @{@"usedBy": myU, @"expiry": @(codeExpiry)};
+    NSDate *codeExp = [[NSDate date] dateByAddingTimeInterval:30*24*3600];
+    NSDictionary *p = @{@"usedBy": myU, @"expire_date": [RDWCore dateToStr:codeExp]};
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, code]]];
     [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
     __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         [weakSelf addDaysToUser:30 completion:^(BOOL ok) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (ok) [weakSelf finalizeActivationForCode:code expiry:codeExpiry];
+                if (ok) [weakSelf finalizeActivationForCode:code];
                 else [weakSelf showError:@"خطأ أثناء تفعيل الكود"];
             });
         }];
@@ -158,23 +168,25 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (void)addDaysToUser:(int)days completion:(void(^)(BOOL ok))completion {
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, [RDWCore myID]];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        double now = [[NSDate date] timeIntervalSince1970], addSec = days * 24 * 3600, newExp = now + addSec;
+        NSDate *newExp = [[NSDate date] dateByAddingTimeInterval:days * 24 * 3600];
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (j && ![j isEqual:[NSNull null]] && j[@"expiry"]) {
-                double cur = [j[@"expiry"] doubleValue];
-                if (cur > now) newExp = cur + addSec;
+            if (j && ![j isEqual:[NSNull null]]) {
+                NSDate *curDate = nil;
+                if (j[@"expire_date"]) curDate = [RDWCore strToDate:j[@"expire_date"]];
+                else if (j[@"expiry"]) curDate = [NSDate dateWithTimeIntervalSince1970:[j[@"expiry"] doubleValue]];
+                if (curDate && [curDate timeIntervalSinceNow] > 0) newExp = [curDate dateByAddingTimeInterval:days * 24 * 3600];
             }
         }
         NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:userURL]];
-        [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"expiry": @(newExp)} options:0 error:nil]];
+        [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"expire_date": [RDWCore dateToStr:newExp]} options:0 error:nil]];
         [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
             if (completion) completion(e2==nil);
         }] resume];
     }] resume];
 }
 
-- (void)finalizeActivationForCode:(NSString *)code expiry:(double)expiry {
+- (void)finalizeActivationForCode:(NSString *)code {
     NSMutableArray *arr = [[[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"] mutableCopy] ?: [NSMutableArray array];
     if (![arr containsObject:code]) [arr addObject:code];
     [[NSUserDefaults standardUserDefaults] setObject:arr forKey:@"RDW_KEYS"];
@@ -198,7 +210,6 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     });
 }
 
-// تعديل رسالة الواتساب هنا لزر الشراء
 - (void)goWA { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_BUY] options:@{} completionHandler:nil]; }
 @end
 
@@ -220,7 +231,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         self.lbl.numberOfLines = 2; self.lbl.textColor = [UIColor whiteColor]; self.lbl.textAlignment = NSTextAlignmentCenter;
         [self addSubview:self.lbl];
         self.fld = [[UITextField alloc] initWithFrame:CGRectMake(16, 80, frame.size.width-32, 44)];
-        self.fld.placeholder = @"أدخل كود تمديد"; self.fld.backgroundColor = [UIColor colorWithWhite:1 alpha:0.06];
+        self.fld.placeholder = @"أدخل كود تمديد جديد"; self.fld.backgroundColor = [UIColor colorWithWhite:1 alpha:0.06];
         self.fld.textAlignment = NSTextAlignmentCenter; self.fld.layer.cornerRadius = 10; self.fld.textColor = [UIColor whiteColor];
         [self addSubview:self.fld];
         self.extendBtn = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -246,8 +257,11 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         int days = 0;
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (j && ![j isEqual:[NSNull null]] && j[@"expiry"]) {
-                days = (int)ceil(([j[@"expiry"] doubleValue] - [[NSDate date] timeIntervalSince1970]) / 86400.0);
+            if (j && ![j isEqual:[NSNull null]]) {
+                NSDate *expD = nil;
+                if (j[@"expire_date"]) expD = [RDWCore strToDate:j[@"expire_date"]];
+                else if (j[@"expiry"]) expD = [NSDate dateWithTimeIntervalSince1970:[j[@"expiry"] doubleValue]];
+                if (expD) days = (int)ceil([expD timeIntervalSinceNow] / 86400.0);
             }
         }
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -266,15 +280,16 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (!json || [json isEqual:[NSNull null]]) { [weakSelf showLocalError:@"غير موجود"]; return; }
             NSString *uBy = json[@"usedBy"] ?: @"", *myU = [RDWCore myID];
-            if ([uBy isEqualToString:@""] || [uBy isEqualToString:myU]) {
-                double codeExp = [[NSDate date] timeIntervalSince1970] + (30*24*3600);
+            
+            if ([uBy isEqualToString:@""]) { // يضيف الأيام فقط إذا كان الكود جديد تماماً
+                NSDate *codeExp = [[NSDate date] dateByAddingTimeInterval:30*24*3600];
                 NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, code]]];
-                [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"usedBy":myU, @"expiry":@(codeExp)} options:0 error:nil]];
+                [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"usedBy":myU, @"expire_date":[RDWCore dateToStr:codeExp]} options:0 error:nil]];
                 [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
                     [weakSelf addDaysToUser:30 completion:^(BOOL ok) {
                         dispatch_async(dispatch_get_main_queue(), ^{
                             if (ok) {
-                                [weakSelf showLocalSuccess:@"تمت إضافة 30 يوم"];
+                                [weakSelf showLocalSuccess:@"تمت إضافة 30 يوم بنجاح"];
                                 NSMutableArray *arr = [[[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"] mutableCopy] ?: [NSMutableArray array];
                                 if (![arr containsObject:code]) [arr addObject:code];
                                 [[NSUserDefaults standardUserDefaults] setObject:arr forKey:@"RDW_KEYS"];
@@ -283,29 +298,35 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
                         });
                     }];
                 }] resume];
-            } else [weakSelf showLocalError:@"مستخدم مسبقاً"];
+            } else if ([uBy isEqualToString:myU]) {
+                [weakSelf showLocalError:@"لقد استخدمت هذا الكود مسبقاً!"]; // منع التكرار
+            } else {
+                [weakSelf showLocalError:@"مستخدم على جهاز آخر!"];
+            }
         });
     }] resume];
 }
 - (void)addDaysToUser:(int)days completion:(void(^)(BOOL ok))completion {
     NSString *userURL = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, [RDWCore myID]];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userURL] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        double now = [[NSDate date] timeIntervalSince1970], add = days * 24 * 3600, newE = now + add;
+        NSDate *newE = [[NSDate date] dateByAddingTimeInterval:days * 24 * 3600];
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (j && ![j isEqual:[NSNull null]] && j[@"expiry"]) {
-                double cur = [j[@"expiry"] doubleValue]; if (cur > now) newE = cur + add;
+            if (j && ![j isEqual:[NSNull null]]) {
+                NSDate *curDate = nil;
+                if (j[@"expire_date"]) curDate = [RDWCore strToDate:j[@"expire_date"]];
+                else if (j[@"expiry"]) curDate = [NSDate dateWithTimeIntervalSince1970:[j[@"expiry"] doubleValue]];
+                if (curDate && [curDate timeIntervalSinceNow] > 0) newE = [curDate dateByAddingTimeInterval:days * 24 * 3600];
             }
         }
         NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:userURL]];
-        [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"expiry":@(newE)} options:0 error:nil]];
+        [req setHTTPMethod:@"PATCH"]; [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"expire_date":[RDWCore dateToStr:newE]} options:0 error:nil]];
         [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
             if (completion) completion(e2==nil);
         }] resume];
     }] resume];
 }
 
-// تعديل رسالة الدعم الفني هنا
 - (void)openSupport { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_SUPPORT] options:@{} completionHandler:nil]; }
 
 - (void)showLocalError:(NSString *)m {
@@ -377,10 +398,16 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (void)rdw_periodicCheck {
     NSString *udid = [RDWCore myID];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_USERS, udid]] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        __block BOOL lock = NO; double now = [[NSDate date] timeIntervalSince1970];
+        __block BOOL lock = NO;
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (!j || [j isEqual:[NSNull null]] || [j[@"expiry"] doubleValue] < now) lock = YES;
+            if (!j || [j isEqual:[NSNull null]]) { lock = YES; }
+            else {
+                NSDate *expD = nil;
+                if (j[@"expire_date"]) expD = [RDWCore strToDate:j[@"expire_date"]];
+                else if (j[@"expiry"]) expD = [NSDate dateWithTimeIntervalSince1970:[j[@"expiry"] doubleValue]];
+                if (!expD || [expD timeIntervalSinceNow] < 0) lock = YES;
+            }
         }
         if (lock) {
             dispatch_async(dispatch_get_main_queue(), ^{
