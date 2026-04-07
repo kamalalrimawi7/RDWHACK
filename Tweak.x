@@ -1,69 +1,39 @@
 #import <Foundation/Foundation.h>
 
-// ==========================================
-// 1. تعريف الواجهات (Interfaces) للمترجم
-// ==========================================
-@interface RCCustomerInfo : NSObject
-- (NSSet *)activeEntitlements;
-- (NSSet *)allPurchasedProductIdentifiers;
-@end
+// المسميات الحقيقية المستخرجة من ملفات التطبيق
+#define KREA_IDS [NSSet setWithObjects: \
+    @"ai.krea.app.sub.creator.max.4.monthly", \
+    @"ai.krea.app.sub.creator.max.4.yearly", \
+    @"ai.krea.app.sub.creator.pro.2.monthly", \
+    @"ai.krea.app.sub.creator.pro.2.yearly", \
+    @"pro", @"max", @"premium", @"plus", @"unlimited", @"compute", nil]
 
-@interface RCEntitlementInfo : NSObject
-- (BOOL)isActive;
-- (BOOL)willRenew;
-@end
-
-@interface RCPurchases : NSObject
-- (void)customerInfoWithCompletion:(void(^)(id info, id error))completion;
-@end
-
-// ==========================================
-// 2. قائمة ضخمة بكل مسميات الاشتراكات المحتملة
-// ==========================================
-#define FAKE_TIERS [NSSet setWithObjects:@"pro", @"premium", @"max", @"unlimited", @"plus", @"vip", @"gold", @"subscription", @"yearly", @"monthly", @"Max", @"Pro", @"Premium", @"individual_max_yearly", @"individual_pro_yearly", @"individual_max_monthly", @"individual_pro_monthly", @"compute", @"credits", @"all_access", nil]
-
-// ==========================================
-// 3. اختراق معلومات العميل (RCCustomerInfo)
-// ==========================================
+// هوك لمعلومات العميل
 %hook RCCustomerInfo
-
-- (NSSet *)activeEntitlements {
-    return FAKE_TIERS;
-}
-
-- (NSSet *)allPurchasedProductIdentifiers {
-    return FAKE_TIERS;
-}
-
+- (NSSet *)activeEntitlements { return KREA_IDS; }
+- (NSSet *)allPurchasedProductIdentifiers { return KREA_IDS; }
+- (NSDictionary *)entitlements { return %orig; } // يمكن توسيعه لاحقاً لو لزم
 %end
 
-// ==========================================
-// 4. إجبار أي اشتراك يتم فحصه على أن يكون فعالاً
-// ==========================================
+// هوك لمعلومات الاستحقاق نفسه
 %hook RCEntitlementInfo
-
-- (BOOL)isActive {
-    return YES;
-}
-
-- (BOOL)willRenew {
-    return YES;
-}
-
+- (BOOL)isActive { return YES; }
+- (void)setIsActive:(BOOL)arg1 { %orig(YES); }
+- (BOOL)willRenew { return YES; }
+- (long long)periodType { return 1; } // 1 تعني Normal (ليس تجريبي)
 %end
 
-// ==========================================
-// 5. اختراق مدير المشتريات لتخطي الأخطاء
-// ==========================================
+// هوك إضافي لضمان عدم وجود أخطاء في واجهة المشتريات
 %hook RCPurchases
-
 - (void)customerInfoWithCompletion:(void(^)(id info, id error))completion {
     void (^modifiedCompletion)(id, id) = ^(id info, id error) {
-        if (completion) {
-            completion(info, nil);
-        }
+        if (completion) completion(info, nil);
     };
     %orig(modifiedCompletion);
 }
+%end
 
+// منع التطبيق من إرسال بيانات التحليل التي قد تكشف التزييف
+%hook PostHog
+- (void)capture:(id)arg1 properties:(id)arg2 { return; }
 %end
