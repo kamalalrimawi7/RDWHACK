@@ -9,5 +9,7 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = KreaPro
 KreaPro_FILES = Tweak.x
 KreaPro_CFLAGS = -fobjc-arc
+# السطر اللي لازم تضفيه هو هاد:
+KreaPro_FRAMEWORKS = UIKit Foundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
