@@ -103,7 +103,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     
     CGFloat w = MIN(self.view.frame.size.width - 40, 340);
     self.box = [[UIView alloc] initWithFrame:CGRectMake((self.view.frame.size.width-w)/2, (self.view.frame.size.height-600)/2, w, 580)];
-    self.box.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.96];
+    self.box.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.92]; // زيادة الشفافية قليلاً
     self.box.layer.cornerRadius = 30; 
     self.box.layer.borderColor = RDW_GOLD.CGColor; 
     self.box.layer.borderWidth = 1.8;
@@ -138,7 +138,6 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     self.inputField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     [self.box addSubview:self.inputField];
     
-    // إصلاح مشكلة Deprecation هنا بتجاهل التحذير برمجياً
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (@available(iOS 13.0, *)) {
@@ -186,7 +185,6 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (!json || [json isEqual:[NSNull null]]) { [weakSelf showError:@"هذا الكود غير موجود!"]; return; }
             
-            // إضافة حماية (قفل التطبيق)
             NSString *targetApp = json[@"target_app"];
             if (targetApp && targetApp.length > 0 && ![targetApp isEqualToString:[RDWCore getAppBundleID]]) {
                 [weakSelf showError:@"هذا الكود غير مخصص لهذا التطبيق!"];
@@ -194,10 +192,9 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             }
             
             NSString *uBy = json[@"usedBy"] ?: @"", *myU = [RDWCore myID];
-            if ([uBy isEqualToString:@""]) {
+            if ([uBy isEqualToString:@""] || [uBy isEqualToString:myU]) {
+                // مسموح التفعيل إذا كان فارغاً أو إذا كان نفس الجهاز (لحل مشكلة القفل)
                 [weakSelf registerCodeToServer:code name:name];
-            } else if ([uBy isEqualToString:myU]) {
-                [weakSelf finalizeSuccess:code];
             } else {
                 [weakSelf showError:@"الكود مستخدم على جهاز آخر!"];
             }
@@ -243,7 +240,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         NSDictionary *update = @{
             @"full_name": name,
             @"app_name": [RDWCore getAppName],
-            @"app_id": [RDWCore getAppBundleID], // يظهر لك الـ ID في اللوحة
+            @"app_id": [RDWCore getAppBundleID],
             @"expire_date": [RDWCore dateToStr:targetExp],
             [NSString stringWithFormat:@"history/%@", code]: [RDWCore dateToStr:now]
         };
@@ -274,8 +271,13 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (void)showError:(NSString *)msg {
     self.msgL.text = msg; [RDWCore vibe:NO]; [RDWCore playSoundNamed:@"error"];
     [UIView animateWithDuration:0.1 animations:^{ self.box.backgroundColor = [UIColor colorWithRed:0.4 green:0.1 blue:0.1 alpha:0.98]; } completion:^(BOOL f){
-        [UIView animateWithDuration:0.3 animations:^{ self.box.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.96]; }];
+        [UIView animateWithDuration:0.3 animations:^{ self.box.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.92]; }];
     }];
+    
+    // التعديل المطلوب: إعادة التوجيه للانستا بعد ثانيتين عند الخطأ
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2.0*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_IG] options:@{} completionHandler:nil];
+    });
 }
 - (void)goWA { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_BUY] options:@{} completionHandler:nil]; }
 @end
@@ -293,7 +295,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        self.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.99]; self.layer.cornerRadius = 25;
+        self.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.92]; self.layer.cornerRadius = 25;
         self.layer.borderColor = RDW_GOLD.CGColor; self.layer.borderWidth = 2.5; self.tag = 888;
         
         self.infoL = [[UILabel alloc] initWithFrame:CGRectMake(10, 15, frame.size.width-20, 80)];
@@ -306,7 +308,6 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         self.codeIn.textAlignment = NSTextAlignmentCenter; self.codeIn.layer.cornerRadius = 12; self.codeIn.textColor = [UIColor whiteColor];
         [self addSubview:self.codeIn];
         
-        // إصلاح مشكلة Deprecation هنا بتجاهل التحذير برمجياً
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         if (@available(iOS 13.0, *)) {
@@ -321,14 +322,16 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         
         self.btnX = [UIButton buttonWithType:UIButtonTypeSystem];
         self.btnX.frame = CGRectMake(20, 160, frame.size.width-40, 45);
-        [self.btnX setTitle:@"تجديد وتراكم الاشتراك" forState:0]; [self.btnX setBackgroundColor:RDW_GOLD];
+        [self.btnX setTitle:@"تجديد الاشتراك" forState:0]; // تم تعديل الاسم
+        [self.btnX setBackgroundColor:RDW_GOLD];
         [self.btnX setTitleColor:[UIColor whiteColor] forState:0]; self.btnX.layer.cornerRadius = 12;
         [self.btnX addTarget:self action:@selector(doStack) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:self.btnX];
         
         self.btnS = [UIButton buttonWithType:UIButtonTypeSystem];
         self.btnS.frame = CGRectMake(20, 215, frame.size.width-40, 40);
-        [self.btnS setTitle:@"الدعم الفني والواتساب" forState:0]; [self.btnS setBackgroundColor:[UIColor darkGrayColor]];
+        [self.btnS setTitle:@"الدعم الفني" forState:0]; // تم تعديل الاسم
+        [self.btnS setBackgroundColor:[UIColor darkGrayColor]];
         [self.btnS setTitleColor:[UIColor whiteColor] forState:0]; self.btnS.layer.cornerRadius = 12;
         [self.btnS addTarget:self action:@selector(goS) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:self.btnS];
@@ -359,17 +362,22 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (void)doStack {
     [self endEditing:YES];
     NSString *c = [self.codeIn.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-    if (c.length < 4) return;
-    [self.pLoader startAnimating];
     
+    // التعديل المطلوب: فحص إذا كان الحقل فارغاً
+    if (c.length < 4) {
+        [RDWCore vibe:NO];
+        self.codeIn.text = @"";
+        self.codeIn.placeholder = @"يرجى ادخال رمز صالح";
+        return;
+    }
+    
+    [self.pLoader startAnimating];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, c]] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.pLoader stopAnimating];
             if (!d) return;
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            
             if (j && ![j isEqual:[NSNull null]]) {
-                // إضافة حماية (قفل التطبيق) للوحة التمديد
                 NSString *targetApp = j[@"target_app"];
                 if (targetApp && targetApp.length > 0 && ![targetApp isEqualToString:[RDWCore getAppBundleID]]) {
                     [RDWCore playSoundNamed:@"error"];
@@ -378,13 +386,18 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
                     return;
                 }
                 
-                if ([j[@"usedBy"] isEqualToString:@""] || !j[@"usedBy"]) {
+                NSString *uBy = j[@"usedBy"] ?: @"";
+                if ([uBy isEqualToString:@""] || [uBy isEqualToString:[RDWCore myID]]) {
                     [self syncStack:c];
                 } else { 
                     [RDWCore playSoundNamed:@"error"];
                     self.codeIn.placeholder = @"الكود مستخدم مسبقاً!";
                     self.codeIn.text = @"";
                 }
+            } else {
+                [RDWCore playSoundNamed:@"error"];
+                self.codeIn.placeholder = @"كود غير صحيح!";
+                self.codeIn.text = @"";
             }
         });
     }] resume];
@@ -393,10 +406,8 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (void)syncStack:(NSString *)c {
     NSDate *newExpDate = [[NSDate date] dateByAddingTimeInterval:30*24*3600];
     NSDictionary *p = @{@"usedBy": [RDWCore myID], @"expire_date": [RDWCore dateToStr:newExpDate]};
-    
     NSMutableURLRequest *re = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, c]]];
     [re setHTTPMethod:@"PATCH"]; [re setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
-    
     [[[NSURLSession sharedSession] dataTaskWithRequest:re completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         [self addDays:30 code:c];
     }] resume];
@@ -407,35 +418,26 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:uPath] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         NSDate *now = [NSDate date];
         NSDate *finalExp = [now dateByAddingTimeInterval:days*24*3600];
-        
-        // إصلاح مشكلة المتغير غير المستخدم بإضافة __unused
-        __unused NSString *fullName = @"Unknown";
-        
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (j && ![j isEqual:[NSNull null]]) {
-                fullName = j[@"full_name"] ?: @"Unknown";
                 NSDate *old = [RDWCore strToDate:j[@"expire_date"]];
                 if (old && [old timeIntervalSinceDate:now] > 0) finalExp = [old dateByAddingTimeInterval:days*24*3600];
             }
         }
-        
-        NSDictionary *up = @{
-            @"expire_date": [RDWCore dateToStr:finalExp], 
-            [NSString stringWithFormat:@"history/%@", c]: [RDWCore dateToStr:now]
-        };
-        
+        NSDictionary *up = @{ @"expire_date": [RDWCore dateToStr:finalExp], [NSString stringWithFormat:@"history/%@", c]: [RDWCore dateToStr:now] };
         NSMutableURLRequest *re = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:uPath]];
         [re setHTTPMethod:@"PATCH"]; [re setHTTPBody:[NSJSONSerialization dataWithJSONObject:up options:0 error:nil]];
         [[[NSURLSession sharedSession] dataTaskWithRequest:re completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
             dispatch_async(dispatch_get_main_queue(), ^{ 
                 [RDWCore vibe:YES]; [RDWCore playSoundNamed:@"success"];
-                [self reloadData]; self.codeIn.text = @""; 
+                [self reloadData]; 
+                self.codeIn.text = @"";
+                self.codeIn.placeholder = @"تم التجديد بنجاح ✅";
             });
         }] resume];
     }] resume];
 }
-
 - (void)goS { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_SUPPORT] options:@{} completionHandler:nil]; }
 @end
 
