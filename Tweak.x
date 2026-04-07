@@ -3,13 +3,20 @@
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
 
+// --- تعريفات الواجهة لمنع أخطاء المترجم (Forward Declarations) ---
+@interface UIWindow (RDW)
+- (void)rdw_lockNow;
+- (void)rdw_periodicCheck;
+- (UIViewController *)rdw_topVC;
+- (void)rdw_handleP:(UILongPressGestureRecognizer *)g;
+@end
+
 // --- روابط وثوابت متجر RDW ---
-static NSString *const RDW_URL   = @"https://rdw-server-default-rtdb.firebaseio.com/codes";
-static NSString *const RDW_USERS = @"https://rdw-server-default-rtdb.firebaseio.com/users";
+static NSString *const RDW_URL    = @"https://rdw-server-default-rtdb.firebaseio.com/codes";
+static NSString *const RDW_USERS  = @"https://rdw-server-default-rtdb.firebaseio.com/users";
 
 static NSString *const RDW_WA_BUY = @"https://wa.me/972567171874?text=%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%86%D9%8A%20%D8%B4%D8%B1%D8%A7%D8%A1%20%D9%83%D9%88%D8%AF%20%D8%AA%D9%81%D8%B9%D9%8A%D9%84%20RDW%20%D9%84%D9%88%20%D8%B3%D9%85%D8%AD%D8%AA%20%D8%9F";
-static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%Bاع%D8%AF%D8%AA%D9%8A%20%D8%9F";
-static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
+static NSString *const RDW_WA_SUPPORT = @"https://wa.me/972567171874?text=%D9%84%D9%82%D8%AF%20%D9%88%D8%A7%D8%AC%D9%87%D8%AA%20%D9%85%D8%B4%D9%83%D9%84%D8%A9%D8%8C%20%D9%87%D9%84%20%D9%8A%D9%85%D9%83%D9%86%D9%83%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%AA%D9%8A%D8%9F";static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 
 #define RDW_GOLD [UIColor colorWithRed:0.72 green:0.56 blue:0.17 alpha:1.0]
 
@@ -54,23 +61,28 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     else AudioServicesPlaySystemSound(1104);
 }
 + (NSString *)dateToStr:(NSDate *)d {
+    if (!d) return @"";
     NSDateFormatter *f = [[NSDateFormatter alloc] init];
     [f setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    [f setTimeZone:[NSTimeZone localTimeZone]];
     return [f stringFromDate:d];
 }
 + (NSDate *)strToDate:(NSString *)s {
+    if (!s || [s isKindOfClass:[NSNull class]] || s.length < 5) return nil;
     NSDateFormatter *f = [[NSDateFormatter alloc] init];
     [f setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    [f setTimeZone:[NSTimeZone localTimeZone]];
     return [f dateFromString:s];
 }
 @end
 
 // --- شاشة القفل والتفعيل (Login VC) ---
-@interface RDWLoginVC : UIViewController
+@interface RDWLoginVC : UIViewController <UITextFieldDelegate>
 @property (nonatomic, retain) UITextField *inputField;
 @property (nonatomic, retain) UITextField *fullNameField;
 @property (nonatomic, retain) UILabel *msgL;
 @property (nonatomic, retain) UIView *box;
+@property (nonatomic, retain) UIActivityIndicatorView *loader;
 @end
 
 @implementation RDWLoginVC
@@ -95,6 +107,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     UIImageView *img = [[UIImageView alloc] initWithFrame:CGRectMake((w-110)/2, 30, 110, 110)];
     img.layer.cornerRadius = 55; img.layer.borderWidth = 2; img.layer.borderColor = RDW_GOLD.CGColor; img.clipsToBounds = YES;
     img.backgroundColor = [UIColor blackColor];
+    img.contentMode = UIViewContentModeScaleAspectFill;
     [self.box addSubview:img];
     
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:@"https://i.ibb.co/7xZ41GWF/IMG-3601.jpg"] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
@@ -109,18 +122,20 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     self.msgL.textColor = [UIColor systemRedColor]; self.msgL.textAlignment = NSTextAlignmentCenter; self.msgL.font = [UIFont systemFontOfSize:12];
     [self.box addSubview:self.msgL];
     
-    // حقل الاسم الرباعي
     self.fullNameField = [[UITextField alloc] initWithFrame:CGRectMake(20, 220, w-40, 50)];
     self.fullNameField.placeholder = @"أدخل اسمك الرباعي هنا"; self.fullNameField.backgroundColor = [UIColor colorWithWhite:1 alpha:0.05];
     self.fullNameField.textColor = [UIColor whiteColor]; self.fullNameField.textAlignment = NSTextAlignmentCenter; self.fullNameField.layer.cornerRadius = 15;
     [self.box addSubview:self.fullNameField];
 
-    // حقل الكود
     self.inputField = [[UITextField alloc] initWithFrame:CGRectMake(20, 280, w-40, 50)];
     self.inputField.placeholder = @"أدخل كود التفعيل"; self.inputField.backgroundColor = [UIColor colorWithWhite:1 alpha:0.05];
     self.inputField.textColor = [UIColor whiteColor]; self.inputField.textAlignment = NSTextAlignmentCenter; self.inputField.layer.cornerRadius = 15;
     self.inputField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     [self.box addSubview:self.inputField];
+    
+    self.loader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    self.loader.center = CGPointMake(w/2, 310);
+    [self.box addSubview:self.loader];
     
     UIButton *btn1 = [UIButton buttonWithType:UIButtonTypeSystem];
     btn1.frame = CGRectMake(20, 350, w-40, 55); [btn1 setTitle:@"تفعيل النسخة" forState:0];
@@ -140,16 +155,19 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 }
 
 - (void)goCheck {
+    [self.view endEditing:YES];
     NSString *code = [self.inputField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
     NSString *name = [self.fullNameField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
     
     if (name.length < 8) { [self showError:@"يرجى كتابة اسمك الرباعي!"]; return; }
     if (code.length < 4) { [self showError:@"الكود غير صالح!"]; return; }
     
+    [self.loader startAnimating];
     NSString *urlS = [NSString stringWithFormat:@"%@/%@.json", RDW_URL, code];
     __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:urlS] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf.loader stopAnimating];
             if (!d) { [weakSelf showError:@"فشل الاتصال بالسيرفر"]; return; }
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (!json || [json isEqual:[NSNull null]]) { [weakSelf showError:@"هذا الكود غير موجود!"]; return; }
@@ -188,12 +206,16 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 - (void)syncUserWithDays:(int)days name:(NSString *)name code:(NSString *)code completion:(void(^)(BOOL ok))completion {
     NSString *userPath = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, [RDWCore myID]];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:userPath] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        NSDate *targetExp = [[NSDate date] dateByAddingTimeInterval:days * 24 * 3600];
+        NSDate *now = [NSDate date];
+        NSDate *targetExp = [now dateByAddingTimeInterval:days * 24 * 3600];
+        
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (j && ![j isEqual:[NSNull null]] && j[@"expire_date"]) {
-                NSDate *old = [RDWCore strToDate:j[@"expire_date"]];
-                if (old && [old timeIntervalSinceNow] > 0) targetExp = [old dateByAddingTimeInterval:days * 24 * 3600];
+                NSDate *oldExp = [RDWCore strToDate:j[@"expire_date"]];
+                if (oldExp && [oldExp timeIntervalSinceDate:now] > 0) {
+                    targetExp = [oldExp dateByAddingTimeInterval:days * 24 * 3600];
+                }
             }
         }
         
@@ -201,7 +223,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             @"full_name": name,
             @"app_name": [RDWCore getAppName],
             @"expire_date": [RDWCore dateToStr:targetExp],
-            [NSString stringWithFormat:@"history/%@", code]: [RDWCore dateToStr:[NSDate date]]
+            [NSString stringWithFormat:@"history/%@", code]: [RDWCore dateToStr:now]
         };
         
         NSMutableURLRequest *pReq = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:userPath]];
@@ -232,9 +254,6 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     [UIView animateWithDuration:0.1 animations:^{ self.box.backgroundColor = [UIColor colorWithRed:0.4 green:0.1 blue:0.1 alpha:0.98]; } completion:^(BOOL f){
         [UIView animateWithDuration:0.3 animations:^{ self.box.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.96]; }];
     }];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2.5*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_IG] options:@{} completionHandler:nil];
-    });
 }
 - (void)goWA { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_BUY] options:@{} completionHandler:nil]; }
 @end
@@ -244,6 +263,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
 @property (nonatomic, retain) UILabel *infoL;
 @property (nonatomic, retain) UITextField *codeIn;
 @property (nonatomic, retain) UIButton *btnX, *btnS;
+@property (nonatomic, retain) UIActivityIndicatorView *pLoader;
 - (void)reloadData;
 @end
 
@@ -254,26 +274,30 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         self.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.99]; self.layer.cornerRadius = 25;
         self.layer.borderColor = RDW_GOLD.CGColor; self.layer.borderWidth = 2.5; self.tag = 888;
         
-        self.infoL = [[UILabel alloc] initWithFrame:CGRectMake(10, 15, frame.size.width-20, 70)];
-        self.infoL.numberOfLines = 3; self.infoL.textColor = [UIColor whiteColor]; self.infoL.textAlignment = NSTextAlignmentCenter;
-        self.infoL.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+        self.infoL = [[UILabel alloc] initWithFrame:CGRectMake(10, 15, frame.size.width-20, 80)];
+        self.infoL.numberOfLines = 4; self.infoL.textColor = [UIColor whiteColor]; self.infoL.textAlignment = NSTextAlignmentCenter;
+        self.infoL.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
         [self addSubview:self.infoL];
         
-        self.codeIn = [[UITextField alloc] initWithFrame:CGRectMake(20, 95, frame.size.width-40, 45)];
+        self.codeIn = [[UITextField alloc] initWithFrame:CGRectMake(20, 105, frame.size.width-40, 45)];
         self.codeIn.placeholder = @"أدخل كود التمديد هنا"; self.codeIn.backgroundColor = [UIColor colorWithWhite:1 alpha:0.07];
         self.codeIn.textAlignment = NSTextAlignmentCenter; self.codeIn.layer.cornerRadius = 12; self.codeIn.textColor = [UIColor whiteColor];
         [self addSubview:self.codeIn];
         
+        self.pLoader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
+        self.pLoader.center = CGPointMake(frame.size.width/2, 175);
+        [self addSubview:self.pLoader];
+        
         self.btnX = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.btnX.frame = CGRectMake(20, 155, frame.size.width-40, 45);
-        [self.btnX setTitle:@"تجديد الاشتراك" forState:0]; [self.btnX setBackgroundColor:RDW_GOLD];
+        self.btnX.frame = CGRectMake(20, 160, frame.size.width-40, 45);
+        [self.btnX setTitle:@"تجديد وتراكم الاشتراك" forState:0]; [self.btnX setBackgroundColor:RDW_GOLD];
         [self.btnX setTitleColor:[UIColor whiteColor] forState:0]; self.btnX.layer.cornerRadius = 12;
         [self.btnX addTarget:self action:@selector(doStack) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:self.btnX];
         
         self.btnS = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.btnS.frame = CGRectMake(20, 210, frame.size.width-40, 40);
-        [self.btnS setTitle:@"مراسلة المطور" forState:0]; [self.btnS setBackgroundColor:[UIColor darkGrayColor]];
+        self.btnS.frame = CGRectMake(20, 215, frame.size.width-40, 40);
+        [self.btnS setTitle:@"الدعم الفني والواتساب" forState:0]; [self.btnS setBackgroundColor:[UIColor darkGrayColor]];
         [self.btnS setTitleColor:[UIColor whiteColor] forState:0]; self.btnS.layer.cornerRadius = 12;
         [self.btnS addTarget:self action:@selector(goS) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:self.btnS];
@@ -282,10 +306,11 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     }
     return self;
 }
+
 - (void)reloadData {
     NSString *uPath = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, [RDWCore myID]];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:uPath] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        NSString *name = @"جاري التحميل...", *app = [RDWCore getAppName]; int dLeft = 0;
+        NSString *name = @"...", *app = [RDWCore getAppName]; int dLeft = 0;
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
             if (j && ![j isEqual:[NSNull null]]) {
@@ -295,51 +320,77 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             }
         }
         dispatch_async(dispatch_get_main_queue(), ^{
-            self.infoL.text = [NSString stringWithFormat:@"المستخدم: %@\nمتبقي: %d يوم\nالتطبيق: %@", name, MAX(0, dLeft), app];
+            self.infoL.text = [NSString stringWithFormat:@"👤 المستفيد: %@\n⏳ متبقي: %d يوم\n📱 التطبيق: %@\n🆔 ID: %@", name, MAX(0, dLeft), app, [RDWCore myID]];
         });
     }] resume];
 }
+
 - (void)doStack {
+    [self endEditing:YES];
     NSString *c = [self.codeIn.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
     if (c.length < 4) return;
+    [self.pLoader startAnimating];
+    
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, c]] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            [self.pLoader stopAnimating];
             if (!d) return;
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (j && ![j isEqual:[NSNull null]] && [j[@"usedBy"] isEqualToString:@""]) {
+            if (j && ![j isEqual:[NSNull null]] && ([j[@"usedBy"] isEqualToString:@""] || !j[@"usedBy"])) {
                 [self syncStack:c];
-            } else { [RDWCore playSoundNamed:@"error"]; }
+            } else { 
+                [RDWCore playSoundNamed:@"error"];
+                self.codeIn.placeholder = @"الكود مستخدم مسبقاً!";
+                self.codeIn.text = @"";
+            }
         });
     }] resume];
 }
+
 - (void)syncStack:(NSString *)c {
-    NSDate *exp = [[NSDate date] dateByAddingTimeInterval:30*24*3600];
-    NSDictionary *p = @{@"usedBy": [RDWCore myID], @"expire_date": [RDWCore dateToStr:exp]};
+    NSDate *newExpDate = [[NSDate date] dateByAddingTimeInterval:30*24*3600];
+    NSDictionary *p = @{@"usedBy": [RDWCore myID], @"expire_date": [RDWCore dateToStr:newExpDate]};
+    
     NSMutableURLRequest *re = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"%@/%@.json", RDW_URL, c]]];
     [re setHTTPMethod:@"PATCH"]; [re setHTTPBody:[NSJSONSerialization dataWithJSONObject:p options:0 error:nil]];
+    
     [[[NSURLSession sharedSession] dataTaskWithRequest:re completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         [self addDays:30 code:c];
     }] resume];
 }
+
 - (void)addDays:(int)days code:(NSString *)c {
     NSString *uPath = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, [RDWCore myID]];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:uPath] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-        NSDate *newE = [[NSDate date] dateByAddingTimeInterval:days*24*3600];
+        NSDate *now = [NSDate date];
+        NSDate *finalExp = [now dateByAddingTimeInterval:days*24*3600];
+        NSString *fullName = @"Unknown";
+        
         if (d) {
             NSDictionary *j = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-            if (j && j[@"expire_date"]) {
+            if (j && ![j isEqual:[NSNull null]]) {
+                fullName = j[@"full_name"] ?: @"Unknown";
                 NSDate *old = [RDWCore strToDate:j[@"expire_date"]];
-                if (old && [old timeIntervalSinceNow] > 0) newE = [old dateByAddingTimeInterval:days*24*3600];
+                if (old && [old timeIntervalSinceDate:now] > 0) finalExp = [old dateByAddingTimeInterval:days*24*3600];
             }
         }
-        NSDictionary *up = @{@"expire_date": [RDWCore dateToStr:newE], [NSString stringWithFormat:@"history/%@", c]: [RDWCore dateToStr:[NSDate date]]};
+        
+        NSDictionary *up = @{
+            @"expire_date": [RDWCore dateToStr:finalExp], 
+            [NSString stringWithFormat:@"history/%@", c]: [RDWCore dateToStr:now]
+        };
+        
         NSMutableURLRequest *re = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:uPath]];
         [re setHTTPMethod:@"PATCH"]; [re setHTTPBody:[NSJSONSerialization dataWithJSONObject:up options:0 error:nil]];
         [[[NSURLSession sharedSession] dataTaskWithRequest:re completionHandler:^(NSData *d2, NSURLResponse *r2, NSError *e2) {
-            dispatch_async(dispatch_get_main_queue(), ^{ [RDWCore vibe:YES]; [self reloadData]; self.codeIn.text = @""; });
+            dispatch_async(dispatch_get_main_queue(), ^{ 
+                [RDWCore vibe:YES]; [RDWCore playSoundNamed:@"success"];
+                [self reloadData]; self.codeIn.text = @""; 
+            });
         }] resume];
     }] resume];
 }
+
 - (void)goS { [[UIApplication sharedApplication] openURL:[NSURL URLWithString:RDW_WA_SUPPORT] options:@{} completionHandler:nil]; }
 @end
 
@@ -349,40 +400,44 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     %orig;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        [NSTimer scheduledTimerWithTimeInterval:30 repeats:YES block:^(NSTimer *t) {
-            if ([self respondsToSelector:@selector(rdw_periodicCheck)]) [self performSelector:@selector(rdw_periodicCheck)];
+        [NSTimer scheduledTimerWithTimeInterval:35 repeats:YES block:^(NSTimer *t) {
+            [self rdw_periodicCheck];
         }];
         UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(rdw_handleP:)];
-        lp.numberOfTouchesRequired = 3; lp.minimumPressDuration = 1.5; [self addGestureRecognizer:lp];
+        lp.numberOfTouchesRequired = 3; lp.minimumPressDuration = 1.2; [self addGestureRecognizer:lp];
         
         NSArray *k = [[NSUserDefaults standardUserDefaults] objectForKey:@"RDW_KEYS"];
         if (!k || k.count == 0) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.8*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.0*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
                 [self rdw_lockNow];
             });
         }
     });
 }
-%new
-- (void)rdw_lockNow {
+
+%new - (void)rdw_lockNow {
     UIViewController *top = [self rdw_topVC];
-    if (![top isKindOfClass:[RDWLoginVC class]]) {
+    if (![top isKindOfClass:[RDWLoginVC class]] && !top.presentedViewController) {
         RDWLoginVC *vc = [[RDWLoginVC alloc] init];
         vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
         [top presentViewController:vc animated:YES completion:nil];
     }
 }
-%new
-- (void)rdw_handleP:(UILongPressGestureRecognizer *)g {
+
+%new - (void)rdw_handleP:(UILongPressGestureRecognizer *)g {
     if (g.state == UIGestureRecognizerStateBegan) {
-        if ([self viewWithTag:888]) { [[self viewWithTag:888] removeFromSuperview]; return; }
-        RDWPanel *p = [[RDWPanel alloc] initWithFrame:CGRectMake((self.frame.size.width-300)/2, 100, 300, 270)];
-        p.alpha = 0; p.transform = CGAffineTransformMakeScale(0.5, 0.5); [self addSubview:p];
-        [UIView animateWithDuration:0.3 delay:0 usingSpringWithDamping:0.7 initialSpringVelocity:0.5 options:0 animations:^{ p.alpha=1; p.transform=CGAffineTransformIdentity; } completion:nil];
+        if ([self viewWithTag:888]) { 
+            UIView *v = [self viewWithTag:888];
+            [UIView animateWithDuration:0.25 animations:^{ v.alpha = 0; v.transform = CGAffineTransformMakeScale(0.8, 0.8); } completion:^(BOOL f){ [v removeFromSuperview]; }];
+            return; 
+        }
+        RDWPanel *p = [[RDWPanel alloc] initWithFrame:CGRectMake((self.frame.size.width-320)/2, 120, 320, 280)];
+        p.alpha = 0; p.transform = CGAffineTransformMakeScale(0.6, 0.6); [self addSubview:p];
+        [UIView animateWithDuration:0.4 delay:0 usingSpringWithDamping:0.7 initialSpringVelocity:0.6 options:0 animations:^{ p.alpha=1; p.transform=CGAffineTransformIdentity; } completion:nil];
     }
 }
-%new
-- (void)rdw_periodicCheck {
+
+%new - (void)rdw_periodicCheck {
     NSString *uPath = [NSString stringWithFormat:@"%@/%@.json", RDW_USERS, [RDWCore myID]];
     [[[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:uPath] completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
         BOOL shouldLock = NO;
@@ -393,8 +448,7 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
                 NSDate *exp = [RDWCore strToDate:j[@"expire_date"]];
                 if (!exp || [exp timeIntervalSinceNow] < 0) shouldLock = YES;
             }
-        } else { shouldLock = NO; } // تجنب القفل عند انقطاع الإنترنت اللحظي
-        
+        }
         if (shouldLock) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"RDW_KEYS"];
@@ -404,8 +458,8 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         }
     }] resume];
 }
-%new
-- (UIViewController *)rdw_topVC {
+
+%new - (UIViewController *)rdw_topVC {
     UIWindow *kw = nil;
     if (@available(iOS 13.0, *)) {
         for (UIScene *s in [UIApplication sharedApplication].connectedScenes) {
@@ -414,7 +468,10 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
             }
         }
     }
-    if (!kw) kw = [UIApplication sharedApplication].keyWindow ?: [UIApplication sharedApplication].windows.firstObject;
+    if (!kw) {
+        for (UIWindow *w in [UIApplication sharedApplication].windows) { if (w.isKeyWindow) { kw = w; break; } }
+    }
+    if (!kw) kw = [UIApplication sharedApplication].windows.firstObject;
     UIViewController *top = kw.rootViewController;
     while (top.presentedViewController) top = top.presentedViewController;
     return top;
