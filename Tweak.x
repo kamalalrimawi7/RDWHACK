@@ -1,17 +1,17 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-// 1. تعريف كل المعرفات الممكنة للبرو والماكس
-#define KREA_IDS [NSSet setWithObjects: \
+// 1. تعريف كل هويات الـ Pro والـ Max الممكنة
+#define KREA_ALL_ACCESS [NSSet setWithObjects: \
     @"ai.krea.app.sub.creator.max.4.monthly", \
     @"ai.krea.app.sub.creator.max.4.yearly", \
     @"ai.krea.app.sub.creator.pro.2.monthly", \
     @"ai.krea.app.sub.creator.pro.2.yearly", \
-    @"pro", @"max", @"premium", @"creator", nil]
+    @"max", @"pro", @"premium", @"unlimited", nil]
 
-// 2. رسالة التأكيد (معدلة لتجنب أخطاء السيرفر)
+// 2. رسالة التأكيد عند الدخول
 %ctor {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         UIWindow *window = nil;
         if (@available(iOS 13.0, *)) {
             for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -22,56 +22,62 @@
             }
         }
         if (window && window.rootViewController) {
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Rimawi Digital World" 
-                message:@"Krea Ultimate Hack Active!\nKling & Veo Bypass Engaged." 
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"RDW ULTIMATE HACK" 
+                message:@"Krea Pro & Unlimited Credits Active!" 
                 preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"Let's Go!" style:UIAlertActionStyleDefault handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"GO!" style:UIAlertActionStyleDefault handler:nil]];
             [window.rootViewController presentViewController:alert animated:YES completion:nil];
         }
     });
 }
 
-// 3. اختراق نظام المشتريات (RevenueCat)
+// --- 3. اختراق نظام النقاط (الكوتا) 3/5 و 28/30 ---
+%hook KreaQuotaManager
+- (NSInteger)dailyRemaining { return 9999; }
+- (NSInteger)monthlyRemaining { return 9999; }
+- (BOOL)hasEnoughQuotaForModel:(id)arg1 { return YES; }
+- (void)deductQuotaForModel:(id)arg1 { return; } // تعطيل الخصم نهائياً
+%end
+
+%hook KreaCreditManager
+- (NSInteger)availableCredits { return 9999; }
+- (void)deductCredits:(NSInteger)arg1 forModel:(id)arg2 { return; }
+%end
+
+// --- 4. اختراق الميزات (FeatureFlags) لفتح كل النماذج ---
+%hook FeatureFlagsStore
+- (BOOL)isMaxEnabled { return YES; }
+- (BOOL)isProEnabled { return YES; }
+- (BOOL)isSubscriptionActive { return YES; }
+- (BOOL)canUseExpensiveModels { return YES; } // لفتح Sora و Veo
+- (BOOL)canUseRealtimeCamera { return YES; }
+- (BOOL)isUpsellVisible { return NO; }
+%end
+
+// --- 5. اختراق المشتريات (RevenueCat) ---
 %hook RCCustomerInfo
-- (NSSet *)activeEntitlements { return KREA_IDS; }
-- (NSSet *)allPurchasedProductIdentifiers { return KREA_IDS; }
+- (NSSet *)activeEntitlements { return KREA_ALL_ACCESS; }
+- (NSSet *)allPurchasedProductIdentifiers { return KREA_ALL_ACCESS; }
 %end
 
 %hook RCEntitlementInfo
 - (BOOL)isActive { return YES; }
-- (long long)periodType { return 1; } // Trial or Paid
+- (long long)periodType { return 1; }
 %end
 
-// 4. اختراق نظام الائتمان (Credits) - تجميد النقاط
-%hook KreaCreditManager
-- (NSInteger)availableCredits { return 999999; }
-- (BOOL)hasEnoughCreditsForModel:(id)arg1 { return YES; }
-- (void)deductCredits:(NSInteger)arg1 forModel:(id)arg2 { return; } // منع الخصم
+// --- 6. اختراق بروفايل المستخدم ---
+%hook KreaUser
+- (BOOL)isSubscribed { return YES; }
+- (NSString *)subscriptionTier { return @"max"; }
+- (BOOL)isProUser { return YES; }
 %end
 
-// 5. اختراق الميزات (FeatureFlags) - فتح كل الأزرار والريل تايم
-%hook FeatureFlagsStore
-- (BOOL)isSubscriptionActive { return YES; }
-- (BOOL)isProEnabled { return YES; }
-- (BOOL)isMaxEnabled { return YES; }
-- (BOOL)canUseRealtimeTool { return YES; }
-- (BOOL)isUpsellVisible { return NO; }
-%end
-
-// 6. اختراق الـ API (محاولة تزييف الطلب للسيرفر)
+// --- 7. محاولة تزييف الـ API للهيدرز ---
 %hook KreaAPIClient
 - (NSDictionary *)commonHeaders {
     NSMutableDictionary *headers = [[%orig] mutableCopy];
     [headers setObject:@"max" forKey:@"x-subscription-tier"];
-    [headers setObject:@"true" forKey:@"x-is-pro"];
-    [headers setObject:@"true" forKey:@"is_subscriber"];
+    [headers setObject:@"true" forKey:@"is-pro"];
     return headers;
 }
-%end
-
-// 7. اختراق بيانات المستخدم (User Profile)
-%hook KreaUser
-- (BOOL)isSubscribed { return YES; }
-- (NSString *)subscriptionTier { return @"max"; }
-- (BOOL)hasActiveSubscription { return YES; }
 %end
