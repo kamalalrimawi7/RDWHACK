@@ -138,12 +138,16 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
     self.inputField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     [self.box addSubview:self.inputField];
     
-    // إصلاح مشكلة Deprecation هنا
+    // إصلاح مشكلة Deprecation هنا بتجاهل التحذير برمجياً
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (@available(iOS 13.0, *)) {
         self.loader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
     } else {
         self.loader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
     }
+#pragma clang diagnostic pop
+
     self.loader.center = CGPointMake(w/2, 310);
     [self.box addSubview:self.loader];
     
@@ -302,12 +306,16 @@ static NSString *const RDW_IG    = @"https://www.instagram.com/rimawi.dw";
         self.codeIn.textAlignment = NSTextAlignmentCenter; self.codeIn.layer.cornerRadius = 12; self.codeIn.textColor = [UIColor whiteColor];
         [self addSubview:self.codeIn];
         
-        // إصلاح مشكلة Deprecation هنا
+        // إصلاح مشكلة Deprecation هنا بتجاهل التحذير برمجياً
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         if (@available(iOS 13.0, *)) {
             self.pLoader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
         } else {
             self.pLoader = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
         }
+#pragma clang diagnostic pop
+
         self.pLoader.center = CGPointMake(frame.size.width/2, 175);
         [self addSubview:self.pLoader];
         
