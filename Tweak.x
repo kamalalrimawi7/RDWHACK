@@ -1,15 +1,15 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-// 1. تعريف كل هويات الـ Pro والـ Max الممكنة
+// 1. تعريف مسميات البرو والماكس الشاملة
 #define KREA_ALL_ACCESS [NSSet setWithObjects: \
     @"ai.krea.app.sub.creator.max.4.monthly", \
     @"ai.krea.app.sub.creator.max.4.yearly", \
     @"ai.krea.app.sub.creator.pro.2.monthly", \
     @"ai.krea.app.sub.creator.pro.2.yearly", \
-    @"max", @"pro", @"premium", @"unlimited", nil]
+    @"pro", @"max", @"premium", @"unlimited", nil]
 
-// 2. رسالة التأكيد عند الدخول
+// 2. رسالة ترحيب من متجرك عند تشغيل التطبيق (للتأكد أن التويك يعمل)
 %ctor {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         UIWindow *window = nil;
@@ -23,9 +23,9 @@
         }
         if (window && window.rootViewController) {
             UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"RDW ULTIMATE HACK" 
-                message:@"Krea Pro & Unlimited Credits Active!" 
+                message:@"Krea Pro & Unlimited Credits Active!\nBypassing Quota System..." 
                 preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"GO!" style:UIAlertActionStyleDefault handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Let's Go!" style:UIAlertActionStyleDefault handler:nil]];
             [window.rootViewController presentViewController:alert animated:YES completion:nil];
         }
     });
@@ -44,17 +44,17 @@
 - (void)deductCredits:(NSInteger)arg1 forModel:(id)arg2 { return; }
 %end
 
-// --- 4. اختراق الميزات (FeatureFlags) لفتح كل النماذج ---
+// --- 4. فتح كل الميزات (FeatureFlags) والنماذج الغالية ---
 %hook FeatureFlagsStore
 - (BOOL)isMaxEnabled { return YES; }
 - (BOOL)isProEnabled { return YES; }
 - (BOOL)isSubscriptionActive { return YES; }
-- (BOOL)canUseExpensiveModels { return YES; } // لفتح Sora و Veo
+- (BOOL)canUseExpensiveModels { return YES; } // لفتح Sora 2 و Veo 3
 - (BOOL)canUseRealtimeCamera { return YES; }
-- (BOOL)isUpsellVisible { return NO; }
+- (BOOL)isUpsellVisible { return NO; } // إخفاء إعلانات الاشتراك
 %end
 
-// --- 5. اختراق المشتريات (RevenueCat) ---
+// --- 5. اختراق نظام المشتريات (RevenueCat) ---
 %hook RCCustomerInfo
 - (NSSet *)activeEntitlements { return KREA_ALL_ACCESS; }
 - (NSSet *)allPurchasedProductIdentifiers { return KREA_ALL_ACCESS; }
@@ -62,22 +62,28 @@
 
 %hook RCEntitlementInfo
 - (BOOL)isActive { return YES; }
-- (long long)periodType { return 1; }
+- (long long)periodType { return 1; } // Trial or Paid
 %end
 
-// --- 6. اختراق بروفايل المستخدم ---
+// --- 6. اختراق بروفايل المستخدم (User Profile) ---
 %hook KreaUser
 - (BOOL)isSubscribed { return YES; }
 - (NSString *)subscriptionTier { return @"max"; }
 - (BOOL)isProUser { return YES; }
+- (BOOL)hasActiveSubscription { return YES; }
 %end
 
-// --- 7. محاولة تزييف الـ API للهيدرز ---
+// --- 7. محاولة تزييف الـ API للهيدرز (النسخة المصححة لتجنب Build Error) ---
 %hook KreaAPIClient
-- (NSDictionary *)commonHeaders {
-    NSMutableDictionary *headers = [[%orig] mutableCopy];
-    [headers setObject:@"max" forKey:@"x-subscription-tier"];
-    [headers setObject:@"true" forKey:@"is-pro"];
-    return headers;
+- (id)commonHeaders {
+    id originalHeaders = %orig;
+    if ([originalHeaders isKindOfClass:[NSDictionary class]]) {
+        NSMutableDictionary *headers = [originalHeaders mutableCopy];
+        [headers setObject:@"max" forKey:@"x-subscription-tier"];
+        [headers setObject:@"true" forKey:@"is-pro"];
+        [headers setObject:@"true" forKey:@"is_subscriber"];
+        return (id)headers;
+    }
+    return originalHeaders;
 }
 %end
