@@ -6,7 +6,7 @@
 	<dict>
 		<key>Bundles</key>
 		<array>
-			<string>ai.krea.ios</string>
+			<string>ai.krea.app</string>
 		</array>
 	</dict>
 </dict>
